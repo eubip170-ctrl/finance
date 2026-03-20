@@ -125,7 +125,7 @@
             <div class="console-section">
               <div class="console-header">
                 <span class="console-label">01 / 现实种子</span>
-                <span class="console-meta">支持格式: PDF, MD, TXT</span>
+                <span class="console-meta">支持格式: PDF, MD, TXT, MP3, WAV, MP4, MKV, MOV...</span>
               </div>
               
               <div 
@@ -140,7 +140,7 @@
                   ref="fileInput"
                   type="file"
                   multiple
-                  accept=".pdf,.md,.txt"
+                  accept=".pdf,.md,.txt,.mp3,.wav,.m4a,.ogg,.flac,.mp4,.mpeg,.webm,.mkv,.avi,.mov,.wmv"
                   @change="handleFileSelect"
                   style="display: none"
                   :disabled="loading"
@@ -270,7 +270,7 @@ const handleDrop = (e) => {
 const addFiles = (newFiles) => {
   const validFiles = newFiles.filter(file => {
     const ext = file.name.split('.').pop().toLowerCase()
-    return ['pdf', 'md', 'txt'].includes(ext)
+    return ['pdf', 'md', 'txt', 'markdown', 'mp3', 'wav', 'm4a', 'ogg', 'flac', 'mpga', 'mp4', 'mpeg', 'webm', 'mkv', 'avi', 'mov', 'wmv'].includes(ext)
   })
   files.value.push(...validFiles)
 }
