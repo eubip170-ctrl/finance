@@ -10,6 +10,7 @@ from flask import request, jsonify
 
 from . import graph_bp
 from ..config import Config
+from ..utils.request_locale import get_request_locale
 from ..services.ontology_generator import OntologyGenerator
 from ..services.graph_builder import GraphBuilderService
 from ..services.text_processor import TextProcessor
@@ -211,13 +212,15 @@ def generate_ontology():
         ProjectManager.save_extracted_text(project.project_id, all_text)
         logger.info(f"文本提取完成，共 {len(all_text)} 字符")
         
-        # 生成本体
-        logger.info("调用 LLM 生成本体定义...")
+        # 生成本体（传递用户语言，LLM 输出与该语言一致）
+        locale = get_request_locale()
+        logger.info(f"调用 LLM 生成本体定义... (locale={locale})")
         generator = OntologyGenerator()
         ontology = generator.generate(
             document_texts=document_texts,
             simulation_requirement=simulation_requirement,
-            additional_context=additional_context if additional_context else None
+            additional_context=additional_context if additional_context else None,
+            language=locale
         )
         
         # 保存本体到项目

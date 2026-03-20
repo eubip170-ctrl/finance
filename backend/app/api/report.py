@@ -10,6 +10,8 @@ from flask import request, jsonify, send_file
 
 from . import report_bp
 from ..config import Config
+from ..utils.request_locale import get_request_locale
+from ..utils.error_messages import get_error_message
 from ..services.report_agent import ReportAgent, ReportManager, ReportStatus
 from ..services.simulation_manager import SimulationManager
 from ..models.project import ProjectManager
@@ -105,6 +107,9 @@ def generate_report():
                 "error": "缺少模拟需求描述"
             }), 400
         
+        # 获取用户语言偏好（在启动线程前捕获，线程内 request 可能不可用）
+        report_language = get_request_locale()
+        
         # 提前生成 report_id，以便立即返回给前端
         import uuid
         report_id = f"report_{uuid.uuid4().hex[:12]}"
@@ -130,11 +135,12 @@ def generate_report():
                     message="初始化Report Agent..."
                 )
                 
-                # 创建Report Agent
+                # 创建Report Agent（传入用户语言，报告和对话均使用该语言）
                 agent = ReportAgent(
                     graph_id=graph_id,
                     simulation_id=simulation_id,
-                    simulation_requirement=simulation_requirement
+                    simulation_requirement=simulation_requirement,
+                    report_language=report_language
                 )
                 
                 # 进度回调
@@ -498,16 +504,17 @@ def chat_with_report_agent():
         message = data.get('message')
         chat_history = data.get('chat_history', [])
         
+        report_lang = get_request_locale()
         if not simulation_id:
             return jsonify({
                 "success": False,
-                "error": "请提供 simulation_id"
+                "error": get_error_message('missing_simulation_id', report_lang)
             }), 400
-        
+
         if not message:
             return jsonify({
                 "success": False,
-                "error": "请提供 message"
+                "error": get_error_message('missing_message', report_lang)
             }), 400
         
         # 获取模拟和项目信息
@@ -517,30 +524,32 @@ def chat_with_report_agent():
         if not state:
             return jsonify({
                 "success": False,
-                "error": f"模拟不存在: {simulation_id}"
+                "error": f"{get_error_message('simulation_not_found', report_lang)}: {simulation_id}"
             }), 404
-        
+
         project = ProjectManager.get_project(state.project_id)
         if not project:
             return jsonify({
                 "success": False,
-                "error": f"项目不存在: {state.project_id}"
+                "error": f"{get_error_message('project_not_found', report_lang)}: {state.project_id}"
             }), 404
-        
+
         graph_id = state.graph_id or project.graph_id
         if not graph_id:
             return jsonify({
                 "success": False,
-                "error": "缺少图谱ID"
+                "error": get_error_message('missing_graph_id', report_lang)
             }), 400
         
         simulation_requirement = project.simulation_requirement or ""
+        report_language = report_lang
         
-        # 创建Agent并进行对话
+        # 创建Agent并进行对话（使用用户选择的语言）
         agent = ReportAgent(
             graph_id=graph_id,
             simulation_id=simulation_id,
-            simulation_requirement=simulation_requirement
+            simulation_requirement=simulation_requirement,
+            report_language=report_language
         )
         
         result = agent.chat(message=message, chat_history=chat_history)

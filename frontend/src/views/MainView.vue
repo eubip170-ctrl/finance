@@ -15,12 +15,13 @@
             :class="{ active: viewMode === mode }"
             @click="viewMode = mode"
           >
-            {{ { graph: '图谱', split: '双栏', workbench: '工作台' }[mode] }}
+            {{ { graph: t('mainView.graph'), split: t('mainView.split'), workbench: t('mainView.workbench') }[mode] }}
           </button>
         </div>
       </div>
 
       <div class="header-right">
+        <LanguageSelector light />
         <div class="workflow-step">
           <span class="step-num">Step {{ currentStep }}/5</span>
           <span class="step-name">{{ stepNames[currentStep - 1] }}</span>
@@ -76,10 +77,12 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import GraphPanel from '../components/GraphPanel.vue'
 import Step1GraphBuild from '../components/Step1GraphBuild.vue'
 import Step2EnvSetup from '../components/Step2EnvSetup.vue'
+import LanguageSelector from '../components/LanguageSelector.vue'
 import { generateOntology, getProject, buildGraph, getTaskStatus, getGraphData } from '../api/graph'
 import { getPendingUpload, clearPendingUpload } from '../store/pendingUpload'
 
@@ -91,7 +94,14 @@ const viewMode = ref('split') // graph | split | workbench
 
 // Step State
 const currentStep = ref(1) // 1: 图谱构建, 2: 环境搭建, 3: 开始模拟, 4: 报告生成, 5: 深度互动
-const stepNames = ['图谱构建', '环境搭建', '开始模拟', '报告生成', '深度互动']
+const { t } = useI18n()
+const stepNames = computed(() => [
+  t('mainView.stepGraph'),
+  t('mainView.stepEnv'),
+  t('mainView.stepSim'),
+  t('mainView.stepReport'),
+  t('mainView.stepInteraction'),
+])
 
 // Data State
 const currentProjectId = ref(route.params.projectId)
@@ -131,10 +141,10 @@ const statusClass = computed(() => {
 
 const statusText = computed(() => {
   if (error.value) return 'Error'
-  if (currentPhase.value >= 2) return 'Ready'
-  if (currentPhase.value === 1) return 'Building Graph'
-  if (currentPhase.value === 0) return 'Generating Ontology'
-  return 'Initializing'
+  if (currentPhase.value >= 2) return t('mainView.statusReady')
+  if (currentPhase.value === 1) return t('mainView.statusBuilding')
+  if (currentPhase.value === 0) return t('mainView.statusOntology')
+  return t('mainView.statusInit')
 })
 
 // --- Helpers ---

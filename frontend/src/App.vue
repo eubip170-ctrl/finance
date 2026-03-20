@@ -3,7 +3,15 @@
 </template>
 
 <script setup>
-// 使用 Vue Router 来管理页面
+import { onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { getStoredLocale } from './i18n'
+
+// Sync html lang attribute on mount
+onMounted(() => {
+  const locale = getStoredLocale()
+  document.documentElement.lang = locale === 'zh' ? 'zh-CN' : 'en'
+})
 </script>
 
 <style>
