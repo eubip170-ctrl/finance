@@ -114,13 +114,23 @@ cp .env.example .env
 
 **Required Environment Variables:**
 
+The backend supports two LLM providers, switched via `LLM_PROVIDER` (`openai` or `azure_openai`). This feature uses existing dependencies only—**no changes to `pyproject.toml` or `uv.lock` are required**.
+
 ```env
-# LLM API Configuration (supports any LLM API with OpenAI SDK format)
-# Recommended: Alibaba Qwen-plus model via Bailian Platform: https://bailian.console.aliyun.com/
+# LLM provider: openai (default) or azure_openai
+LLM_PROVIDER=openai
+
+# OpenAI-compatible API (when Provider=openai)
+# Recommended: Alibaba Qwen-plus via Bailian: https://bailian.console.aliyun.com/
 # High consumption, try simulations with fewer than 40 rounds first
 LLM_API_KEY=your_api_key
 LLM_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 LLM_MODEL_NAME=qwen-plus
+
+# Azure OpenAI (when Provider=azure_openai)
+# Use either AZURE_OPENAI_BASE_URL or AZURE_OPENAI_ENDPOINT
+# AZURE_OPENAI_API_KEY=your_azure_key
+# AZURE_OPENAI_DEPLOYMENT=your-deployment-name
 
 # Zep Cloud Configuration
 # Free monthly quota is sufficient for simple usage: https://app.getzep.com/

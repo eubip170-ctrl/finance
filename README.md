@@ -114,13 +114,23 @@ cp .env.example .env
 
 **必需的环境变量：**
 
+后端支持两种 LLM 提供商，通过 `LLM_PROVIDER` 切换（`openai` 或 `azure_openai`）。本功能仅使用现有依赖，**无需修改 `pyproject.toml` 或 `uv.lock`**。
+
 ```env
-# LLM API配置（支持 OpenAI SDK 格式的任意 LLM API）
-# 推荐使用阿里百炼平台qwen-plus模型：https://bailian.console.aliyun.com/
+# LLM 提供商：openai（默认）或 azure_openai
+LLM_PROVIDER=openai
+
+# OpenAI 兼容 API（Provider=openai 时使用）
+# 推荐使用阿里百炼平台 qwen-plus：https://bailian.console.aliyun.com/
 # 注意消耗较大，可先进行小于40轮的模拟尝试
 LLM_API_KEY=your_api_key
 LLM_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 LLM_MODEL_NAME=qwen-plus
+
+# Azure OpenAI（Provider=azure_openai 时使用）
+# 二选一：AZURE_OPENAI_BASE_URL 或 AZURE_OPENAI_ENDPOINT
+# AZURE_OPENAI_API_KEY=your_azure_key
+# AZURE_OPENAI_DEPLOYMENT=your-deployment-name
 
 # Zep Cloud 配置
 # 每月免费额度即可支撑简单使用：https://app.getzep.com/
