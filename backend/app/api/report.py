@@ -120,6 +120,9 @@ def generate_report():
             }
         )
         
+        # Capture locale BEFORE background thread starts (request context unavailable in threads)
+        locale = request.headers.get('Accept-Language', 'zh-CN')
+
         # 定义后台任务
         def run_generate():
             try:
@@ -129,12 +132,13 @@ def generate_report():
                     progress=0,
                     message="初始化Report Agent..."
                 )
-                
+
                 # 创建Report Agent
                 agent = ReportAgent(
                     graph_id=graph_id,
                     simulation_id=simulation_id,
-                    simulation_requirement=simulation_requirement
+                    simulation_requirement=simulation_requirement,
+                    locale=locale
                 )
                 
                 # 进度回调
@@ -537,10 +541,12 @@ def chat_with_report_agent():
         simulation_requirement = project.simulation_requirement or ""
         
         # 创建Agent并进行对话
+        locale = request.headers.get('Accept-Language', 'zh-CN')
         agent = ReportAgent(
             graph_id=graph_id,
             simulation_id=simulation_id,
-            simulation_requirement=simulation_requirement
+            simulation_requirement=simulation_requirement,
+            locale=locale
         )
         
         result = agent.chat(message=message, chat_history=chat_history)

@@ -21,6 +21,7 @@ from enum import Enum
 from ..config import Config
 from ..utils.llm_client import LLMClient
 from ..utils.logger import get_logger
+from ..utils.i18n import is_english, get_language_instruction
 from .zep_tools import (
     ZepToolsService, 
     SearchResult, 
@@ -40,14 +41,16 @@ class ReportLogger:
     每行是一个完整的 JSON 对象，包含时间戳、动作类型、详细内容等。
     """
     
-    def __init__(self, report_id: str):
+    def __init__(self, report_id: str, locale: str = 'zh-CN'):
         """
         初始化日志记录器
-        
+
         Args:
             report_id: 报告ID，用于确定日志文件路径
+            locale: 语言设置
         """
         self.report_id = report_id
+        self.locale = locale
         self.log_file_path = os.path.join(
             Config.UPLOAD_FOLDER, 'reports', report_id, 'agent_log.jsonl'
         )
@@ -105,7 +108,7 @@ class ReportLogger:
                 "simulation_id": simulation_id,
                 "graph_id": graph_id,
                 "simulation_requirement": simulation_requirement,
-                "message": "报告生成任务开始"
+                "message": "Report generation task started" if is_english(self.locale) else "报告生成任务开始"
             }
         )
     
@@ -114,7 +117,7 @@ class ReportLogger:
         self.log(
             action="planning_start",
             stage="planning",
-            details={"message": "开始规划报告大纲"}
+            details={"message": "Planning report outline" if is_english(self.locale) else "开始规划报告大纲"}
         )
     
     def log_planning_context(self, context: Dict[str, Any]):
@@ -123,7 +126,7 @@ class ReportLogger:
             action="planning_context",
             stage="planning",
             details={
-                "message": "获取模拟上下文信息",
+                "message": "Fetching simulation context" if is_english(self.locale) else "获取模拟上下文信息",
                 "context": context
             }
         )
@@ -134,7 +137,7 @@ class ReportLogger:
             action="planning_complete",
             stage="planning",
             details={
-                "message": "大纲规划完成",
+                "message": "Outline planning complete" if is_english(self.locale) else "大纲规划完成",
                 "outline": outline_dict
             }
         )
@@ -146,7 +149,7 @@ class ReportLogger:
             stage="generating",
             section_title=section_title,
             section_index=section_index,
-            details={"message": f"开始生成章节: {section_title}"}
+            details={"message": f"Generating section: {section_title}" if is_english(self.locale) else f"开始生成章节: {section_title}"}
         )
     
     def log_react_thought(self, section_title: str, section_index: int, iteration: int, thought: str):
@@ -159,7 +162,7 @@ class ReportLogger:
             details={
                 "iteration": iteration,
                 "thought": thought,
-                "message": f"ReACT 第{iteration}轮思考"
+                "message": f"ReACT iteration {iteration} thought" if is_english(self.locale) else f"ReACT 第{iteration}轮思考"
             }
         )
     
@@ -285,7 +288,7 @@ class ReportLogger:
             details={
                 "total_sections": total_sections,
                 "total_time_seconds": round(total_time_seconds, 2),
-                "message": "报告生成完成"
+                "message": "Report generation complete" if is_english(self.locale) else "报告生成完成"
             }
         )
     
@@ -587,6 +590,45 @@ PLAN_SYSTEM_PROMPT = """\
 
 注意：sections数组最少2个，最多5个元素！"""
 
+PLAN_SYSTEM_PROMPT_EN = """\
+You are an expert writer of "Future Prediction Reports", with a "God's-eye view" of the simulated world — you can observe every Agent's behavior, speech, and interactions.
+
+[Core Concept]
+We built a simulated world and injected specific "simulation requirements" as variables. The evolution results of this simulated world are predictions of what may happen in the future. You are observing not "experimental data", but a "rehearsal of the future".
+
+[Your Task]
+Write a "Future Prediction Report" that answers:
+1. Under the conditions we set, what happened in the future?
+2. How did various types of Agents (groups of people) react and act?
+3. What noteworthy future trends and risks does this simulation reveal?
+
+[Report Positioning]
+- This is a simulation-based future prediction report, revealing "if this happens, what will the future look like"
+- Focus on prediction results: event trajectories, group reactions, emergent phenomena, potential risks
+- Agent behavior and speech in the simulated world are predictions of future human behavior
+- NOT an analysis of the current real world
+- NOT a generic public opinion summary
+
+[Section Limits]
+- Minimum 2 sections, maximum 5 sections
+- No sub-sections needed; each section should contain complete content
+- Content should be concise, focused on core predictive findings
+- Section structure is designed by you based on prediction results
+
+Please output the report outline in JSON format as follows:
+{
+    "title": "Report title",
+    "summary": "Report summary (one sentence summarizing core predictive findings)",
+    "sections": [
+        {
+            "title": "Section title",
+            "description": "Section content description"
+        }
+    ]
+}
+
+Note: the sections array must have at least 2 and at most 5 elements!"""
+
 PLAN_USER_PROMPT_TEMPLATE = """\
 【预测场景设定】
 我们向模拟世界注入的变量（模拟需求）：{simulation_requirement}
@@ -608,6 +650,28 @@ PLAN_USER_PROMPT_TEMPLATE = """\
 根据预测结果，设计最合适的报告章节结构。
 
 【再次提醒】报告章节数量：最少2个，最多5个，内容要精炼聚焦于核心预测发现。"""
+
+PLAN_USER_PROMPT_TEMPLATE_EN = """\
+[Prediction Scenario Setup]
+The variable we injected into the simulated world (simulation requirement): {simulation_requirement}
+
+[Simulated World Scale]
+- Number of entities in the simulation: {total_nodes}
+- Number of relationships between entities: {total_edges}
+- Entity type distribution: {entity_types}
+- Number of active Agents: {total_entities}
+
+[Sample of Future Facts Predicted by the Simulation]
+{related_facts_json}
+
+Please examine this future rehearsal from a "God's-eye view":
+1. Under the conditions we set, what state did the future present?
+2. How did various groups of people (Agents) react and act?
+3. What noteworthy future trends does this simulation reveal?
+
+Based on the prediction results, design the most appropriate report section structure.
+
+[Reminder] Report sections: minimum 2, maximum 5, content should be concise and focused on core predictive findings."""
 
 # ── 章节生成 prompt ──
 
@@ -790,6 +854,185 @@ SECTION_USER_PROMPT_TEMPLATE = """\
 2. 然后调用工具（Action）获取模拟数据
 3. 收集足够信息后输出 Final Answer（纯正文，无任何标题）"""
 
+SECTION_SYSTEM_PROMPT_TEMPLATE_EN = """\
+You are an expert writer of "Future Prediction Reports", currently writing one section of the report.
+
+Report title: {report_title}
+Report summary: {report_summary}
+Prediction scenario (simulation requirement): {simulation_requirement}
+
+Current section to write: {section_title}
+
+===============================================================
+[Core Concept]
+===============================================================
+
+The simulated world is a rehearsal of the future. We injected specific conditions (simulation requirements)
+into the simulated world. Agent behavior and interactions in the simulation are predictions of future human behavior.
+
+Your task is to:
+- Reveal what happened in the future under the set conditions
+- Predict how various groups of people (Agents) reacted and acted
+- Discover noteworthy future trends, risks, and opportunities
+
+Do NOT write this as an analysis of the current real world.
+DO focus on "what will the future look like" — simulation results ARE the predicted future.
+
+===============================================================
+[Most Important Rules - Must Follow]
+===============================================================
+
+1. [Must Call Tools to Observe the Simulated World]
+   - You are observing a future rehearsal from a "God's-eye view"
+   - All content must come from events and Agent behavior in the simulated world
+   - Do not use your own knowledge to write report content
+   - Each section must call tools at least 3 times (maximum 5) to observe the simulated world representing the future
+
+2. [Must Quote Agents' Original Behavior]
+   - Agent speech and behavior are predictions of future human behavior
+   - Use quotation format in the report to display these predictions, e.g.:
+     > "A certain group would say: original content..."
+   - These quotes are core evidence of simulation predictions
+
+3. [Language Consistency - Quoted Content Must Match Report Language]
+   - Tool-returned content may contain mixed languages
+   - The report must be written entirely in English
+   - When quoting content returned by tools, translate it into fluent English before including it
+   - Preserve the original meaning when translating, ensure natural expression
+   - This rule applies to both body text and quoted blocks (> format)
+
+4. [Faithfully Present Prediction Results]
+   - Report content must reflect simulation results representing the future
+   - Do not add information that does not exist in the simulation
+   - If information is insufficient in some area, state this honestly
+
+===============================================================
+[Format Specification - Extremely Important!]
+===============================================================
+
+[One Section = Smallest Content Unit]
+- Each section is the smallest unit of the report
+- Do NOT use any Markdown headings (#, ##, ###, #### etc.) within sections
+- Do NOT add the section title at the beginning of content
+- Section titles are added automatically by the system; you only write body text
+- Use **bold**, paragraph breaks, quotes, and lists to organize content, but no headings
+
+[Correct Example]
+```
+This section analyzes the public opinion dynamics of the event. Through in-depth analysis of simulation data, we found...
+
+**Initial Outbreak Phase**
+
+Social media served as the primary venue, handling the core first-wave information:
+
+> "Social media contributed 68% of the initial volume..."
+
+**Emotion Amplification Phase**
+
+Video platforms further amplified the event's impact:
+
+- Strong visual impact
+- High emotional resonance
+```
+
+[Wrong Example]
+```
+## Executive Summary          <- Wrong! Do not add any headings
+### Phase 1: Initial          <- Wrong! Do not use ###
+#### 1.1 Detailed Analysis   <- Wrong! Do not use ####
+
+This section analyzes...
+```
+
+===============================================================
+[Available Search Tools] (call 3-5 times per section)
+===============================================================
+
+{tools_description}
+
+[Tool Usage Suggestions - Mix different tools, don't use only one]
+- insight_forge: Deep insight analysis, automatically decomposes problems and retrieves facts and relationships from multiple dimensions
+- panorama_search: Wide-angle panoramic search, understand the full picture, timeline and evolution of events
+- quick_search: Quickly verify a specific piece of information
+- interview_agents: Interview simulation Agents, get first-person perspectives and real reactions from different roles
+
+===============================================================
+[Workflow]
+===============================================================
+
+Each reply you can only do one of the following (not both):
+
+Option A - Call a tool:
+Output your thinking, then call one tool in this format:
+<tool_call>
+{{"name": "tool_name", "parameters": {{"param_name": "param_value"}}}}
+</tool_call>
+The system will execute the tool and return results. You do not need to and cannot write tool results yourself.
+
+Option B - Output final content:
+When you have gathered enough information through tools, output the section content starting with "Final Answer:".
+
+Strictly prohibited:
+- Do not include both tool calls and Final Answer in the same reply
+- Do not fabricate tool return results (Observation); all tool results are injected by the system
+- Call at most one tool per reply
+
+===============================================================
+[Section Content Requirements]
+===============================================================
+
+1. Content must be based on simulation data retrieved by tools
+2. Extensively quote original text to demonstrate simulation results
+3. Use Markdown formatting (but no headings):
+   - Use **bold text** to mark key points (instead of sub-headings)
+   - Use lists (- or 1.2.3.) to organize points
+   - Use blank lines to separate paragraphs
+   - Do NOT use #, ##, ###, #### or any heading syntax
+4. [Quote Format - Must Be Standalone Paragraphs]
+   Quotes must be standalone paragraphs with a blank line before and after:
+
+   Correct:
+   ```
+   The response was considered lacking in substance.
+
+   > "The response pattern appeared rigid and slow in the fast-moving social media environment."
+
+   This assessment reflects widespread public dissatisfaction.
+   ```
+
+   Wrong:
+   ```
+   The response was considered lacking. > "The response pattern..." This assessment reflects...
+   ```
+5. Maintain logical coherence with other sections
+6. [Avoid Repetition] Carefully read the completed sections below and do not repeat the same information
+7. [Emphasis] Do not add any headings! Use **bold** instead of sub-section headings"""
+
+SECTION_USER_PROMPT_TEMPLATE_EN = """\
+Completed section content (please read carefully to avoid repetition):
+{previous_content}
+
+===============================================================
+[Current Task] Write section: {section_title}
+===============================================================
+
+[Important Reminders]
+1. Carefully read the completed sections above to avoid repeating the same content!
+2. You must call tools to retrieve simulation data before starting
+3. Mix different tools, don't use only one
+4. Report content must come from search results, do not use your own knowledge
+
+[Format Warning - Must Follow]
+- Do NOT write any headings (#, ##, ###, ####)
+- Do NOT write "{section_title}" as the opening
+- Section titles are added automatically by the system
+- Write body text directly, use **bold** instead of sub-section headings
+
+Please begin:
+1. First think (Thought) about what information this section needs
+2. Then call tools (Action) to retrieve simulation data
+3. When enough information is gathered, output Final Answer (body text only, no headings)"""
+
 # ── ReACT 循环内消息模板 ──
 
 REACT_OBSERVATION_TEMPLATE = """\
@@ -881,26 +1124,29 @@ class ReportAgent:
     MAX_TOOL_CALLS_PER_CHAT = 2
     
     def __init__(
-        self, 
+        self,
         graph_id: str,
         simulation_id: str,
         simulation_requirement: str,
         llm_client: Optional[LLMClient] = None,
-        zep_tools: Optional[ZepToolsService] = None
+        zep_tools: Optional[ZepToolsService] = None,
+        locale: Optional[str] = None
     ):
         """
         初始化Report Agent
-        
+
         Args:
             graph_id: 图谱ID
             simulation_id: 模拟ID
             simulation_requirement: 模拟需求描述
             llm_client: LLM客户端（可选）
             zep_tools: Zep工具服务（可选）
+            locale: 用户语言偏好（可选，默认zh-CN）
         """
         self.graph_id = graph_id
         self.simulation_id = simulation_id
         self.simulation_requirement = simulation_requirement
+        self.locale = locale or 'zh-CN'
         
         self.llm = llm_client or LLMClient()
         self.zep_tools = zep_tools or ZepToolsService()
@@ -1162,8 +1408,9 @@ class ReportAgent:
         if progress_callback:
             progress_callback("planning", 30, "正在生成报告大纲...")
         
-        system_prompt = PLAN_SYSTEM_PROMPT
-        user_prompt = PLAN_USER_PROMPT_TEMPLATE.format(
+        system_prompt = PLAN_SYSTEM_PROMPT_EN if is_english(self.locale) else PLAN_SYSTEM_PROMPT
+        _plan_user_tpl = PLAN_USER_PROMPT_TEMPLATE_EN if is_english(self.locale) else PLAN_USER_PROMPT_TEMPLATE
+        user_prompt = _plan_user_tpl.format(
             simulation_requirement=self.simulation_requirement,
             total_nodes=context.get('graph_statistics', {}).get('total_nodes', 0),
             total_edges=context.get('graph_statistics', {}).get('total_edges', 0),
@@ -1251,7 +1498,8 @@ class ReportAgent:
         if self.report_logger:
             self.report_logger.log_section_start(section.title, section_index)
         
-        system_prompt = SECTION_SYSTEM_PROMPT_TEMPLATE.format(
+        _section_sys_tpl = SECTION_SYSTEM_PROMPT_TEMPLATE_EN if is_english(self.locale) else SECTION_SYSTEM_PROMPT_TEMPLATE
+        system_prompt = _section_sys_tpl.format(
             report_title=outline.title,
             report_summary=outline.summary,
             simulation_requirement=self.simulation_requirement,
@@ -1268,9 +1516,10 @@ class ReportAgent:
                 previous_parts.append(truncated)
             previous_content = "\n\n---\n\n".join(previous_parts)
         else:
-            previous_content = "（这是第一个章节）"
-        
-        user_prompt = SECTION_USER_PROMPT_TEMPLATE.format(
+            previous_content = "(This is the first section)" if is_english(self.locale) else "（这是第一个章节）"
+
+        _section_usr_tpl = SECTION_USER_PROMPT_TEMPLATE_EN if is_english(self.locale) else SECTION_USER_PROMPT_TEMPLATE
+        user_prompt = _section_usr_tpl.format(
             previous_content=previous_content,
             section_title=section.title,
         )
@@ -1579,7 +1828,7 @@ class ReportAgent:
             ReportManager._ensure_report_folder(report_id)
             
             # 初始化日志记录器（结构化日志 agent_log.jsonl）
-            self.report_logger = ReportLogger(report_id)
+            self.report_logger = ReportLogger(report_id, locale=self.locale)
             self.report_logger.log_start(
                 simulation_id=self.simulation_id,
                 graph_id=self.graph_id,
@@ -1590,7 +1839,8 @@ class ReportAgent:
             self.console_logger = ReportConsoleLogger(report_id)
             
             ReportManager.update_progress(
-                report_id, "pending", 0, "初始化报告...",
+                report_id, "pending", 0,
+                "Initializing report..." if is_english(self.locale) else "初始化报告...",
                 completed_sections=[]
             )
             ReportManager.save_report(report)
@@ -1598,7 +1848,8 @@ class ReportAgent:
             # 阶段1: 规划大纲
             report.status = ReportStatus.PLANNING
             ReportManager.update_progress(
-                report_id, "planning", 5, "开始规划报告大纲...",
+                report_id, "planning", 5,
+                "Planning report outline..." if is_english(self.locale) else "开始规划报告大纲...",
                 completed_sections=[]
             )
             
@@ -1606,7 +1857,7 @@ class ReportAgent:
             self.report_logger.log_planning_start()
             
             if progress_callback:
-                progress_callback("planning", 0, "开始规划报告大纲...")
+                progress_callback("planning", 0, "Planning report outline..." if is_english(self.locale) else "开始规划报告大纲...")
             
             outline = self.plan_outline(
                 progress_callback=lambda stage, prog, msg: 
@@ -1620,7 +1871,8 @@ class ReportAgent:
             # 保存大纲到文件
             ReportManager.save_outline(report_id, outline)
             ReportManager.update_progress(
-                report_id, "planning", 15, f"大纲规划完成，共{len(outline.sections)}个章节",
+                report_id, "planning", 15,
+                f"Outline complete, {len(outline.sections)} sections" if is_english(self.locale) else f"大纲规划完成，共{len(outline.sections)}个章节",
                 completed_sections=[]
             )
             ReportManager.save_report(report)
@@ -1640,16 +1892,16 @@ class ReportAgent:
                 # 更新进度
                 ReportManager.update_progress(
                     report_id, "generating", base_progress,
-                    f"正在生成章节: {section.title} ({section_num}/{total_sections})",
+                    (f"Generating section: {section.title} ({section_num}/{total_sections})" if is_english(self.locale) else f"正在生成章节: {section.title} ({section_num}/{total_sections})"),
                     current_section=section.title,
                     completed_sections=completed_section_titles
                 )
-                
+
                 if progress_callback:
                     progress_callback(
-                        "generating", 
-                        base_progress, 
-                        f"正在生成章节: {section.title} ({section_num}/{total_sections})"
+                        "generating",
+                        base_progress,
+                        f"Generating section: {section.title} ({section_num}/{total_sections})" if is_english(self.locale) else f"正在生成章节: {section.title} ({section_num}/{total_sections})"
                     )
                 
                 # 生成主章节内容
@@ -1689,17 +1941,18 @@ class ReportAgent:
                 ReportManager.update_progress(
                     report_id, "generating", 
                     base_progress + int(70 / total_sections),
-                    f"章节 {section.title} 已完成",
+                    (f"Section {section.title} complete" if is_english(self.locale) else f"章节 {section.title} 已完成"),
                     current_section=None,
                     completed_sections=completed_section_titles
                 )
             
             # 阶段3: 组装完整报告
             if progress_callback:
-                progress_callback("generating", 95, "正在组装完整报告...")
+                progress_callback("generating", 95, "Assembling full report..." if is_english(self.locale) else "正在组装完整报告...")
             
             ReportManager.update_progress(
-                report_id, "generating", 95, "正在组装完整报告...",
+                report_id, "generating", 95,
+                "Assembling full report..." if is_english(self.locale) else "正在组装完整报告...",
                 completed_sections=completed_section_titles
             )
             
@@ -1721,12 +1974,13 @@ class ReportAgent:
             # 保存最终报告
             ReportManager.save_report(report)
             ReportManager.update_progress(
-                report_id, "completed", 100, "报告生成完成",
+                report_id, "completed", 100,
+                "Report generation complete" if is_english(self.locale) else "报告生成完成",
                 completed_sections=completed_section_titles
             )
             
             if progress_callback:
-                progress_callback("completed", 100, "报告生成完成")
+                progress_callback("completed", 100, "Report generation complete" if is_english(self.locale) else "报告生成完成")
             
             logger.info(f"报告生成完成: {report_id}")
             
@@ -1750,7 +2004,8 @@ class ReportAgent:
             try:
                 ReportManager.save_report(report)
                 ReportManager.update_progress(
-                    report_id, "failed", -1, f"报告生成失败: {str(e)}",
+                    report_id, "failed", -1,
+                    (f"Report generation failed: {str(e)}" if is_english(self.locale) else f"报告生成失败: {str(e)}"),
                     completed_sections=completed_section_titles
                 )
             except Exception:

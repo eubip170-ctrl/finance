@@ -15,7 +15,7 @@
             :class="{ active: viewMode === mode }"
             @click="viewMode = mode"
           >
-            {{ { graph: '图谱', split: '双栏', workbench: '工作台' }[mode] }}
+            {{ { graph: $t('header.viewGraph'), split: $t('header.viewSplit'), workbench: $t('header.viewWorkbench') }[mode] }}
           </button>
         </div>
       </div>
@@ -23,13 +23,16 @@
       <div class="header-right">
         <div class="workflow-step">
           <span class="step-num">Step 3/5</span>
-          <span class="step-name">开始模拟</span>
+          <span class="step-name">{{ $t('header.stepNames.step3') }}</span>
         </div>
         <div class="step-divider"></div>
         <span class="status-indicator" :class="statusClass">
           <span class="dot"></span>
           {{ statusText }}
         </span>
+        <button class="lang-toggle" @click="toggleLocale">
+          {{ locale === 'zh-CN' ? 'EN' : '中' }}
+        </button>
       </div>
     </header>
 
@@ -69,6 +72,8 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
+import { useLocaleToggle } from '@/i18n/useLocaleToggle'
 import GraphPanel from '../components/GraphPanel.vue'
 import Step3Simulation from '../components/Step3Simulation.vue'
 import { getProject, getGraphData } from '../api/graph'
@@ -76,6 +81,8 @@ import { getSimulation, getSimulationConfig, stopSimulation, closeSimulationEnv,
 
 const route = useRoute()
 const router = useRouter()
+const { t } = useI18n()
+const { locale, toggleLocale } = useLocaleToggle()
 
 // Props
 const props = defineProps({
@@ -115,9 +122,9 @@ const statusClass = computed(() => {
 })
 
 const statusText = computed(() => {
-  if (currentStatus.value === 'error') return 'Error'
-  if (currentStatus.value === 'completed') return 'Completed'
-  return 'Running'
+  if (currentStatus.value === 'error') return t('header.statusError')
+  if (currentStatus.value === 'completed') return t('header.statusCompleted')
+  return t('header.statusRunning')
 })
 
 const isSimulating = computed(() => currentStatus.value === 'processing')
@@ -424,6 +431,25 @@ onUnmounted(() => {
 .status-indicator.error .dot { background: #F44336; }
 
 @keyframes pulse { 50% { opacity: 0.5; } }
+
+.lang-toggle {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 6px 14px;
+  border: 1.5px solid #ccc;
+  background: #f5f5f5;
+  color: #333;
+  cursor: pointer;
+  border-radius: 6px;
+  letter-spacing: 0.5px;
+  transition: all 0.2s;
+}
+.lang-toggle:hover {
+  border-color: #000;
+  background: #e8e8e8;
+  color: #000;
+}
 
 /* Content */
 .content-area {

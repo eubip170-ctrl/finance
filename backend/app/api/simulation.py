@@ -21,25 +21,35 @@ logger = get_logger('mirofish.api.simulation')
 
 # Interview prompt 优化前缀
 # 添加此前缀可以避免Agent调用工具，直接用文本回复
-INTERVIEW_PROMPT_PREFIX = "结合你的人设、所有的过往记忆与行动，不调用任何工具直接用文本回复我："
+INTERVIEW_PROMPT_PREFIX_ZH = "结合你的人设、所有的过往记忆与行动，不调用任何工具直接用文本回复我："
+INTERVIEW_PROMPT_PREFIX_EN = "Based on your persona, all past memories and actions, reply directly in text without calling any tools: "
 
 
-def optimize_interview_prompt(prompt: str) -> str:
+def get_interview_prompt_prefix(locale: str = 'zh-CN') -> str:
+    """Get locale-appropriate interview prompt prefix."""
+    if locale.startswith('en'):
+        return INTERVIEW_PROMPT_PREFIX_EN
+    return INTERVIEW_PROMPT_PREFIX_ZH
+
+
+def optimize_interview_prompt(prompt: str, locale: str = 'zh-CN') -> str:
     """
     优化Interview提问，添加前缀避免Agent调用工具
-    
+
     Args:
         prompt: 原始提问
-        
+        locale: 用户语言偏好
+
     Returns:
         优化后的提问
     """
     if not prompt:
         return prompt
+    prefix = get_interview_prompt_prefix(locale)
     # 避免重复添加前缀
-    if prompt.startswith(INTERVIEW_PROMPT_PREFIX):
+    if prompt.startswith(INTERVIEW_PROMPT_PREFIX_ZH) or prompt.startswith(INTERVIEW_PROMPT_PREFIX_EN):
         return prompt
-    return f"{INTERVIEW_PROMPT_PREFIX}{prompt}"
+    return f"{prefix}{prompt}"
 
 
 # ============== 实体读取接口 ==============
@@ -466,6 +476,9 @@ def prepare_simulation():
         entity_types_list = data.get('entity_types')
         use_llm_for_profiles = data.get('use_llm_for_profiles', True)
         parallel_profile_count = data.get('parallel_profile_count', 5)
+
+        # Capture locale BEFORE background thread starts (request context unavailable in threads)
+        locale = request.headers.get('Accept-Language', 'zh-CN')
         
         # ========== 同步获取实体数量（在后台任务启动前） ==========
         # 这样前端在调用prepare后立即就能获取到预期Agent总数
@@ -582,7 +595,8 @@ def prepare_simulation():
                     defined_entity_types=entity_types_list,
                     use_llm_for_profiles=use_llm_for_profiles,
                     progress_callback=progress_callback,
-                    parallel_profile_count=parallel_profile_count
+                    parallel_profile_count=parallel_profile_count,
+                    locale=locale
                 )
                 
                 # 任务完成
@@ -2227,8 +2241,9 @@ def interview_agent():
             }), 400
         
         # 优化prompt，添加前缀避免Agent调用工具
-        optimized_prompt = optimize_interview_prompt(prompt)
-        
+        locale = request.headers.get('Accept-Language', 'zh-CN')
+        optimized_prompt = optimize_interview_prompt(prompt, locale=locale)
+
         result = SimulationRunner.interview_agent(
             simulation_id=simulation_id,
             agent_id=agent_id,
@@ -2362,10 +2377,11 @@ def interview_agents_batch():
             }), 400
 
         # 优化每个采访项的prompt，添加前缀避免Agent调用工具
+        locale = request.headers.get('Accept-Language', 'zh-CN')
         optimized_interviews = []
         for interview in interviews:
             optimized_interview = interview.copy()
-            optimized_interview['prompt'] = optimize_interview_prompt(interview.get('prompt', ''))
+            optimized_interview['prompt'] = optimize_interview_prompt(interview.get('prompt', ''), locale=locale)
             optimized_interviews.append(optimized_interview)
 
         result = SimulationRunner.interview_agents_batch(
@@ -2469,7 +2485,8 @@ def interview_all_agents():
             }), 400
 
         # 优化prompt，添加前缀避免Agent调用工具
-        optimized_prompt = optimize_interview_prompt(prompt)
+        locale = request.headers.get('Accept-Language', 'zh-CN')
+        optimized_prompt = optimize_interview_prompt(prompt, locale=locale)
 
         result = SimulationRunner.interview_all_agents(
             simulation_id=simulation_id,

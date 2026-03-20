@@ -20,6 +20,7 @@ from zep_cloud.client import Zep
 
 from ..config import Config
 from ..utils.logger import get_logger
+from ..utils.i18n import get_language_instruction, get_fragments, is_english
 from .zep_entity_reader import EntityNode, ZepEntityReader
 
 logger = get_logger('mirofish.oasis_profile')
@@ -178,13 +179,15 @@ class OasisProfileGenerator:
     ]
     
     def __init__(
-        self, 
+        self,
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
         model_name: Optional[str] = None,
         zep_api_key: Optional[str] = None,
-        graph_id: Optional[str] = None
+        graph_id: Optional[str] = None,
+        locale: Optional[str] = None
     ):
+        self.locale = locale or 'zh-CN'
         self.api_key = api_key or Config.LLM_API_KEY
         self.base_url = base_url or Config.LLM_BASE_URL
         self.model_name = model_name or Config.LLM_MODEL_NAME
@@ -670,7 +673,11 @@ class OasisProfileGenerator:
     
     def _get_system_prompt(self, is_individual: bool) -> str:
         """获取系统提示词"""
-        base_prompt = "你是社交媒体用户画像生成专家。生成详细、真实的人设用于舆论模拟,最大程度还原已有现实情况。必须返回有效的JSON格式，所有字符串值不能包含未转义的换行符。使用中文。"
+        lang_instruction = get_language_instruction(self.locale)
+        if is_english(self.locale):
+            base_prompt = f"You are an expert in generating social media user profiles. Generate detailed, realistic personas for public opinion simulation, restoring existing real-world situations as much as possible. You must return valid JSON format; all string values must not contain unescaped newline characters. {lang_instruction}"
+        else:
+            base_prompt = f"你是社交媒体用户画像生成专家。生成详细、真实的人设用于舆论模拟,最大程度还原已有现实情况。必须返回有效的JSON格式，所有字符串值不能包含未转义的换行符。{lang_instruction}"
         return base_prompt
     
     def _build_individual_persona_prompt(
@@ -682,11 +689,53 @@ class OasisProfileGenerator:
         context: str
     ) -> str:
         """构建个人实体的详细人设提示词"""
-        
-        attrs_str = json.dumps(entity_attributes, ensure_ascii=False) if entity_attributes else "无"
-        context_str = context[:3000] if context else "无额外上下文"
-        
-        return f"""为实体生成详细的社交媒体用户人设,最大程度还原已有现实情况。
+
+        frags = get_fragments(self.locale)
+
+        if is_english(self.locale):
+            attrs_str = json.dumps(entity_attributes, ensure_ascii=False) if entity_attributes else "None"
+            context_str = context[:3000] if context else "No additional context"
+
+            return f"""Generate a detailed social media user persona for this entity, restoring existing real-world situations as much as possible.
+
+Entity name: {entity_name}
+Entity type: {entity_type}
+Entity summary: {entity_summary}
+Entity attributes: {attrs_str}
+
+Context information:
+{context_str}
+
+Please generate JSON with the following fields:
+
+1. bio: Social media bio, ~200 words
+2. persona: Detailed persona description (2000-word plain text), including:
+   - Basic info (age, profession, education background, location)
+   - Background (important experiences, connection to events, social relationships)
+   - Personality traits (MBTI type, core personality, emotional expression style)
+   - Social media behavior (posting frequency, content preferences, interaction style, language characteristics)
+   - Stances and opinions (attitudes toward topics, content that might anger/move them)
+   - Unique traits (catchphrases, special experiences, personal hobbies)
+   - Personal memories (important part of persona: this individual's connection to events, and their existing actions and reactions in the events)
+3. age: Age as a number (must be an integer)
+4. gender: Must be in English: "male" or "female"
+5. mbti: MBTI type (e.g. INTJ, ENFP)
+6. country: Country ({frags['country_example']})
+7. profession: Profession
+8. interested_topics: Array of topics of interest
+
+Important:
+- All field values must be strings or numbers, do not use newline characters
+- persona must be a coherent text description
+- {frags['use_language']} ({frags['except_gender']})
+- Content must be consistent with entity information
+- age must be a valid integer, gender must be "male" or "female"
+"""
+        else:
+            attrs_str = json.dumps(entity_attributes, ensure_ascii=False) if entity_attributes else "无"
+            context_str = context[:3000] if context else "无额外上下文"
+
+            return f"""为实体生成详细的社交媒体用户人设,最大程度还原已有现实情况。
 
 实体名称: {entity_name}
 实体类型: {entity_type}
@@ -731,11 +780,52 @@ class OasisProfileGenerator:
         context: str
     ) -> str:
         """构建群体/机构实体的详细人设提示词"""
-        
-        attrs_str = json.dumps(entity_attributes, ensure_ascii=False) if entity_attributes else "无"
-        context_str = context[:3000] if context else "无额外上下文"
-        
-        return f"""为机构/群体实体生成详细的社交媒体账号设定,最大程度还原已有现实情况。
+
+        frags = get_fragments(self.locale)
+
+        if is_english(self.locale):
+            attrs_str = json.dumps(entity_attributes, ensure_ascii=False) if entity_attributes else "None"
+            context_str = context[:3000] if context else "No additional context"
+
+            return f"""Generate a detailed social media account profile for this organization/group entity, restoring existing real-world situations as much as possible.
+
+Entity name: {entity_name}
+Entity type: {entity_type}
+Entity summary: {entity_summary}
+Entity attributes: {attrs_str}
+
+Context information:
+{context_str}
+
+Please generate JSON with the following fields:
+
+1. bio: Official account bio, ~200 words, professional and appropriate
+2. persona: Detailed account description (2000-word plain text), including:
+   - Organization basics (official name, nature, founding background, main functions)
+   - Account positioning (account type, target audience, core functions)
+   - Communication style (language characteristics, common expressions, taboo topics)
+   - Content characteristics (content types, posting frequency, active time periods)
+   - Stance and attitude (official stance on core topics, how controversies are handled)
+   - Special notes (represented group profile, operational habits)
+   - Institutional memory (important part of persona: this organization's connection to events, and its existing actions and reactions in the events)
+3. age: Fixed at 30 (virtual age for institutional accounts)
+4. gender: Fixed as "other" (institutional accounts use "other" for non-personal)
+5. mbti: MBTI type to describe account style, e.g. ISTJ for rigorous and conservative
+6. country: Country ({frags['country_example']})
+7. profession: Description of institutional functions
+8. interested_topics: Array of areas of interest
+
+Important:
+- All field values must be strings or numbers, no null values allowed
+- persona must be a coherent text description, do not use newline characters
+- {frags['use_language']} (gender field must be "other")
+- age must be integer 30, gender must be string "other"
+- Institutional account speech must match its identity positioning"""
+        else:
+            attrs_str = json.dumps(entity_attributes, ensure_ascii=False) if entity_attributes else "无"
+            context_str = context[:3000] if context else "无额外上下文"
+
+            return f"""为机构/群体实体生成详细的社交媒体账号设定,最大程度还原已有现实情况。
 
 实体名称: {entity_name}
 实体类型: {entity_type}

@@ -2,16 +2,18 @@ import axios from 'axios'
 
 // 创建axios实例
 const service = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001',
+  baseURL: import.meta.env.VITE_API_BASE_URL || `${window.location.protocol}//${window.location.hostname}:5001`,
   timeout: 300000, // 5分钟超时（本体生成可能需要较长时间）
   headers: {
     'Content-Type': 'application/json'
   }
 })
 
-// 请求拦截器
+// 请求拦截器 - automatically attach user's language preference
 service.interceptors.request.use(
   config => {
+    const locale = localStorage.getItem('mirofish-locale') || 'zh-CN'
+    config.headers['Accept-Language'] = locale
     return config
   },
   error => {
