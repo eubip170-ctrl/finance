@@ -19,6 +19,29 @@ from ..models.project import ProjectManager
 logger = get_logger('mirofish.api.simulation')
 
 
+def _get_default_platform(simulation_id: str) -> str:
+    """
+    根据模拟配置返回默认平台
+
+    读取 SimulationState 中的 enable_twitter / enable_reddit 设置，
+    返回该模拟实际使用的平台，而非硬编码 'reddit'。
+
+    Args:
+        simulation_id: 模拟ID
+
+    Returns:
+        'twitter' 或 'reddit'
+    """
+    try:
+        manager = SimulationManager()
+        state = manager._load_simulation_state(simulation_id)
+        if state:
+            return state.get_default_platform()
+    except Exception:
+        pass
+    return "reddit"
+
+
 # Interview prompt 优化前缀
 # 添加此前缀可以避免Agent调用工具，直接用文本回复
 INTERVIEW_PROMPT_PREFIX = "结合你的人设、所有的过往记忆与行动，不调用任何工具直接用文本回复我："
@@ -991,8 +1014,8 @@ def get_simulation_profiles(simulation_id: str):
         platform: 平台类型（reddit/twitter，默认reddit）
     """
     try:
-        platform = request.args.get('platform', 'reddit')
-        
+        platform = request.args.get('platform') or _get_default_platform(simulation_id)
+
         manager = SimulationManager()
         profiles = manager.get_profiles(simulation_id, platform=platform)
         
@@ -1053,8 +1076,8 @@ def get_simulation_profiles_realtime(simulation_id: str):
     from datetime import datetime
     
     try:
-        platform = request.args.get('platform', 'reddit')
-        
+        platform = request.args.get('platform') or _get_default_platform(simulation_id)
+
         # 获取模拟目录
         sim_dir = os.path.join(Config.OASIS_SIMULATION_DATA_DIR, simulation_id)
         
@@ -1992,15 +2015,15 @@ def get_simulation_posts(simulation_id: str):
     返回帖子列表（从SQLite数据库读取）
     """
     try:
-        platform = request.args.get('platform', 'reddit')
+        platform = request.args.get('platform') or _get_default_platform(simulation_id)
         limit = request.args.get('limit', 50, type=int)
         offset = request.args.get('offset', 0, type=int)
-        
+
         sim_dir = os.path.join(
             os.path.dirname(__file__),
             f'../../uploads/simulations/{simulation_id}'
         )
-        
+
         db_file = f"{platform}_simulation.db"
         db_path = os.path.join(sim_dir, db_file)
         
@@ -2060,24 +2083,26 @@ def get_simulation_posts(simulation_id: str):
 @simulation_bp.route('/<simulation_id>/comments', methods=['GET'])
 def get_simulation_comments(simulation_id: str):
     """
-    获取模拟中的评论（仅Reddit）
-    
+    获取模拟中的评论
+
     Query参数：
+        platform: 平台类型（twitter/reddit，根据模拟配置自动选择）
         post_id: 过滤帖子ID（可选）
         limit: 返回数量
         offset: 偏移量
     """
     try:
+        platform = request.args.get('platform') or _get_default_platform(simulation_id)
         post_id = request.args.get('post_id')
         limit = request.args.get('limit', 50, type=int)
         offset = request.args.get('offset', 0, type=int)
-        
+
         sim_dir = os.path.join(
             os.path.dirname(__file__),
             f'../../uploads/simulations/{simulation_id}'
         )
         
-        db_path = os.path.join(sim_dir, "reddit_simulation.db")
+        db_path = os.path.join(sim_dir, f"{platform}_simulation.db")
         
         if not os.path.exists(db_path):
             return jsonify({

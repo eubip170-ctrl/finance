@@ -915,7 +915,7 @@ const loadProfiles = async () => {
   if (!props.simulationId) return
   
   try {
-    const res = await getSimulationProfilesRealtime(props.simulationId, 'reddit')
+    const res = await getSimulationProfilesRealtime(props.simulationId)
     if (res.success && res.data) {
       profiles.value = res.data.profiles || []
       addLog(`加载了 ${profiles.value.length} 个模拟个体`)

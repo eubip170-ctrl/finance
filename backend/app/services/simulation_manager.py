@@ -96,6 +96,15 @@ class SimulationState:
             "error": self.error,
         }
     
+    def get_default_platform(self) -> str:
+        """根据启用状态返回默认平台"""
+        if self.enable_twitter and self.enable_reddit:
+            return "reddit"  # 两者都启用时保持原默认
+        elif self.enable_twitter:
+            return "twitter"
+        else:
+            return "reddit"
+
     def to_simple_dict(self) -> Dict[str, Any]:
         """简化状态字典（API返回使用）"""
         return {
@@ -477,12 +486,15 @@ class SimulationManager:
         
         return simulations
     
-    def get_profiles(self, simulation_id: str, platform: str = "reddit") -> List[Dict[str, Any]]:
+    def get_profiles(self, simulation_id: str, platform: str = None) -> List[Dict[str, Any]]:
         """获取模拟的Agent Profile"""
         state = self._load_simulation_state(simulation_id)
         if not state:
             raise ValueError(f"模拟不存在: {simulation_id}")
-        
+
+        if platform is None:
+            platform = state.get_default_platform()
+
         sim_dir = self._get_simulation_dir(simulation_id)
         profile_path = os.path.join(sim_dir, f"{platform}_profiles.json")
         
