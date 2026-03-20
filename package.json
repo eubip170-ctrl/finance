@@ -9,7 +9,9 @@
     "dev": "concurrently --kill-others -n \"backend,frontend\" -c \"green,cyan\" \"npm run backend\" \"npm run frontend\"",
     "backend": "cd backend && uv run python run.py",
     "frontend": "cd frontend && npm run dev",
-    "build": "cd frontend && npm run build"
+    "build": "cd frontend && npm run build",
+    "proxy": "cd claude-proxy && python server.py",
+    "dev:claude": "concurrently --kill-others -n \"proxy,backend,frontend\" -c \"yellow,green,cyan\" \"npm run proxy\" \"npm run backend\" \"npm run frontend\""
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

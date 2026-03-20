@@ -67,6 +67,7 @@ class Config:
     def validate(cls):
         """验证必要配置"""
         errors = []
+        # 使用 Claude Code Proxy 时，API key 可以是任意值（如 "not-needed"）
         if not cls.LLM_API_KEY:
             errors.append("LLM_API_KEY 未配置")
         if not cls.ZEP_API_KEY:

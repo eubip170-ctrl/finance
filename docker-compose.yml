@@ -12,3 +12,18 @@ services:
     restart: unless-stopped
     volumes:
       - ./backend/uploads:/app/backend/uploads
+
+  # ===== Claude Code Proxy（可选）=====
+  # 通过 Claude Code CLI 使用 Claude（需要主机已安装并登录 Claude Code）
+  # 启用时需将 mirofish 的 LLM_BASE_URL 设为 http://claude-proxy:8082/v1
+  # claude-proxy:
+  #   build:
+  #     context: ./claude-proxy
+  #     dockerfile: Dockerfile
+  #   container_name: claude-proxy
+  #   ports:
+  #     - "8082:8082"
+  #   environment:
+  #     - CLAUDE_PROXY_PORT=8082
+  #     - CLAUDE_PROXY_MODEL=sonnet
+  #   restart: unless-stopped
