@@ -27,10 +27,17 @@ class Config:
     # JSON配置 - 禁用ASCII转义，让中文直接显示（而不是 \uXXXX 格式）
     JSON_AS_ASCII = False
     
-    # LLM配置（统一使用OpenAI格式）
-    LLM_API_KEY = os.environ.get('LLM_API_KEY')
-    LLM_BASE_URL = os.environ.get('LLM_BASE_URL', 'https://api.openai.com/v1')
-    LLM_MODEL_NAME = os.environ.get('LLM_MODEL_NAME', 'gpt-4o-mini')
+    # OpenRouter配置（作为LLM的后备方案）
+    OPENROUTER_API_KEY = os.environ.get('OPENROUTER_API_KEY')
+    OPENROUTER_BASE_URL = os.environ.get('OPENROUTER_BASE_URL', 'https://openrouter.ai/api/v1')
+    OPENROUTER_MODEL_NAME = os.environ.get('OPENROUTER_MODEL_NAME', 'anthropic/claude-sonnet-4')
+    OPENROUTER_REFERER = os.environ.get('OPENROUTER_REFERER', 'https://github.com/MiroFish')
+    OPENROUTER_TITLE = os.environ.get('OPENROUTER_TITLE', 'MiroFish')
+
+    # LLM配置（优先使用LLM_*，未设置则回退到OpenRouter）
+    LLM_API_KEY = os.environ.get('LLM_API_KEY') or OPENROUTER_API_KEY
+    LLM_BASE_URL = os.environ.get('LLM_BASE_URL') or OPENROUTER_BASE_URL
+    LLM_MODEL_NAME = os.environ.get('LLM_MODEL_NAME') or OPENROUTER_MODEL_NAME
     
     # Zep配置
     ZEP_API_KEY = os.environ.get('ZEP_API_KEY')
@@ -68,7 +75,7 @@ class Config:
         """验证必要配置"""
         errors = []
         if not cls.LLM_API_KEY:
-            errors.append("LLM_API_KEY 未配置")
+            errors.append("LLM_API_KEY 或 OPENROUTER_API_KEY 未配置")
         if not cls.ZEP_API_KEY:
             errors.append("ZEP_API_KEY 未配置")
         return errors
