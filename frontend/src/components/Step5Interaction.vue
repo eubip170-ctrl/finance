@@ -490,8 +490,10 @@ const saveChatHistory = () => {
   
   if (chatTarget.value === 'report_agent') {
     chatHistoryCache.value['report_agent'] = [...chatHistory.value]
-  } else if (selectedAgentIndex.value !== null) {
-    chatHistoryCache.value[`agent_${selectedAgentIndex.value}`] = [...chatHistory.value]
+  } else if (selectedAgent.value !== null) {
+    // 使用 user_id 作为缓存 key，确保与后端 agent_id 一致
+    const agentId = selectedAgent.value.user_id !== undefined ? selectedAgent.value.user_id : selectedAgentIndex.value
+    chatHistoryCache.value[`agent_${agentId}`] = [...chatHistory.value]
   }
 }
 
@@ -529,12 +531,13 @@ const selectAgent = (agent, idx) => {
   saveChatHistory()
   
   selectedAgent.value = agent
-  selectedAgentIndex.value = idx
+  selectedAgentIndex.value = agent.user_id !== undefined ? agent.user_id : idx
   chatTarget.value = 'agent'
   showAgentDropdown.value = false
   
-  // 恢复该 Agent 的对话记录
-  chatHistory.value = chatHistoryCache.value[`agent_${idx}`] || []
+  // 恢复该 Agent 的对话记录 (使用 user_id 作为 key)
+  const cacheKey = agent.user_id !== undefined ? `agent_${agent.user_id}` : `agent_${idx}`
+  chatHistory.value = chatHistoryCache.value[cacheKey] || []
   addLog(`选择对话对象: ${agent.username}`)
 }
 
@@ -806,10 +809,15 @@ const submitSurvey = async () => {
   addLog(`发送问卷给 ${selectedAgents.value.size} 个对象...`)
   
   try {
-    const interviews = Array.from(selectedAgents.value).map(idx => ({
-      agent_id: idx,
-      prompt: surveyQuestion.value.trim()
-    }))
+    // 使用 user_id 作为 agent_id，而不是数组索引
+    const interviews = Array.from(selectedAgents.value).map(idx => {
+      const agent = profiles.value[idx]
+      const agentId = agent?.user_id !== undefined ? agent.user_id : idx
+      return {
+        agent_id: agentId,
+        prompt: surveyQuestion.value.trim()
+      }
+    })
     
     const res = await interviewAgents({
       simulation_id: props.simulationId,
@@ -826,30 +834,31 @@ const submitSurvey = async () => {
       const surveyResultsList = []
       
       for (const interview of interviews) {
-        const agentIdx = interview.agent_id
-        const agent = profiles.value[agentIdx]
+        const agentId = interview.agent_id
+        // 通过 user_id 查找对应的 agent 信息
+        const agent = profiles.value.find(p => p.user_id === agentId) || profiles.value[agentId]
         
         // 优先使用 reddit 平台回复，其次 twitter
         let responseContent = '无响应'
         
         if (typeof resultsDict === 'object' && !Array.isArray(resultsDict)) {
-          const redditKey = `reddit_${agentIdx}`
-          const twitterKey = `twitter_${agentIdx}`
+          const redditKey = `reddit_${agentId}`
+          const twitterKey = `twitter_${agentId}`
           const agentResult = resultsDict[redditKey] || resultsDict[twitterKey]
           if (agentResult) {
             responseContent = agentResult.response || agentResult.answer || '无响应'
           }
         } else if (Array.isArray(resultsDict)) {
           // 兼容数组格式
-          const matchedResult = resultsDict.find(r => r.agent_id === agentIdx)
+          const matchedResult = resultsDict.find(r => r.agent_id === agentId)
           if (matchedResult) {
             responseContent = matchedResult.response || matchedResult.answer || '无响应'
           }
         }
         
         surveyResultsList.push({
-          agent_id: agentIdx,
-          agent_name: agent?.username || `Agent ${agentIdx}`,
+          agent_id: agentId,
+          agent_name: agent?.username || `Agent ${agentId}`,
           profession: agent?.profession,
           question: surveyQuestion.value.trim(),
           answer: responseContent

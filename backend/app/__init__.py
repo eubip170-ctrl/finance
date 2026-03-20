@@ -73,6 +73,23 @@ def create_app(config_class=Config):
     def health():
         return {'status': 'ok', 'service': 'MiroFish Backend'}
     
+    # 根路由 - 返回服务信息和可用端点
+    @app.route('/')
+    def index():
+        return {
+            'service': 'MiroFish Backend',
+            'status': 'running',
+            'version': '1.0.0',
+            'endpoints': {
+                'health': '/health',
+                'api': {
+                    'graph': '/api/graph',
+                    'simulation': '/api/simulation',
+                    'report': '/api/report'
+                }
+            }
+        }
+    
     if should_log_startup:
         logger.info("MiroFish Backend 启动完成")
     
