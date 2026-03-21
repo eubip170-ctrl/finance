@@ -102,6 +102,24 @@ Click the image to watch MiroFish's deep prediction of the lost ending based on 
 | **Node.js** | 18+ | Frontend runtime, includes npm | `node -v` |
 | **Python** | ≥3.11, ≤3.12 | Backend runtime | `python --version` |
 | **uv** | Latest | Python package manager | `uv --version` |
+| **Neo4j** | 5.x Community | Local knowledge graph database | `neo4j --version` |
+
+**Install Neo4j (choose one):**
+
+```bash
+# macOS
+brew install neo4j
+
+# Linux (Debian/Ubuntu)
+# See official docs: https://neo4j.com/docs/operations-manual/current/installation/linux/
+
+# Windows / All platforms
+# Download Neo4j Desktop: https://neo4j.com/download/
+
+# Set password before first start, then launch
+neo4j-admin dbms set-initial-password your_neo4j_password
+neo4j start
+```
 
 #### 1. Configure Environment Variables
 
@@ -122,10 +140,16 @@ LLM_API_KEY=your_api_key
 LLM_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 LLM_MODEL_NAME=qwen-plus
 
-# Zep Cloud Configuration
-# Free monthly quota is sufficient for simple usage: https://app.getzep.com/
-ZEP_API_KEY=your_zep_api_key
+# Knowledge Graph — local Neo4j + Graphiti (free, no rate limits)
+NEO4J_URI=bolt://localhost:7687
+NEO4J_USER=neo4j
+NEO4J_PASSWORD=your_neo4j_password
+
+# Embedding model (uncomment if using Gemini API)
+# EMBEDDING_MODEL=gemini-embedding-001
 ```
+
+> **Note:** MiroFish has migrated from Zep Cloud to local **Graphiti + Neo4j**. No third-party account required — completely free with no rate limits.
 
 #### 2. Install Dependencies
 

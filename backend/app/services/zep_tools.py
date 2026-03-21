@@ -13,7 +13,7 @@ import json
 from typing import Dict, Any, List, Optional
 from dataclasses import dataclass, field
 
-from zep_cloud.client import Zep
+from .graphiti_adapter import GraphitiAdapter
 
 from ..config import Config
 from ..utils.logger import get_logger
@@ -422,11 +422,7 @@ class ZepToolsService:
     RETRY_DELAY = 2.0
     
     def __init__(self, api_key: Optional[str] = None, llm_client: Optional[LLMClient] = None):
-        self.api_key = api_key or Config.ZEP_API_KEY
-        if not self.api_key:
-            raise ValueError("ZEP_API_KEY 未配置")
-        
-        self.client = Zep(api_key=self.api_key)
+        self.client = GraphitiAdapter()
         # LLM客户端用于InsightForge生成子问题
         self._llm_client = llm_client
         logger.info("ZepToolsService 初始化完成")
@@ -439,26 +435,38 @@ class ZepToolsService:
         return self._llm_client
     
     def _call_with_retry(self, func, operation_name: str, max_retries: int = None):
-        """带重试机制的API调用"""
+        """带重试机制的API调用（自动处理429限速）"""
         max_retries = max_retries or self.MAX_RETRIES
         last_exception = None
         delay = self.RETRY_DELAY
-        
+
         for attempt in range(max_retries):
             try:
                 return func()
             except Exception as e:
                 last_exception = e
                 if attempt < max_retries - 1:
-                    logger.warning(
-                        f"Zep {operation_name} 第 {attempt + 1} 次尝试失败: {str(e)[:100]}, "
-                        f"{delay:.1f}秒后重试..."
-                    )
-                    time.sleep(delay)
+                    # 检测429限速错误，使用retry-after头部的等待时间
+                    wait = delay
+                    if hasattr(e, 'status_code') and e.status_code == 429:
+                        retry_after = None
+                        if hasattr(e, 'headers') and e.headers:
+                            retry_after = e.headers.get('retry-after')
+                        wait = float(retry_after) + 1 if retry_after else 65.0
+                        logger.warning(
+                            f"Zep {operation_name} 触发限速 (429), "
+                            f"等待 {wait:.0f} 秒后重试 (第 {attempt + 1}/{max_retries - 1} 次)..."
+                        )
+                    else:
+                        logger.warning(
+                            f"Zep {operation_name} 第 {attempt + 1} 次尝试失败: {str(e)[:100]}, "
+                            f"{wait:.1f}秒后重试..."
+                        )
+                    time.sleep(wait)
                     delay *= 2
                 else:
                     logger.error(f"Zep {operation_name} 在 {max_retries} 次尝试后仍失败: {str(e)}")
-        
+
         raise last_exception
     
     def search_graph(

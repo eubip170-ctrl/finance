@@ -4,6 +4,7 @@
 """
 
 import os
+import time
 import traceback
 import threading
 from flask import request, jsonify
@@ -17,6 +18,12 @@ from ..utils.file_parser import FileParser
 from ..utils.logger import get_logger
 from ..models.task import TaskManager, TaskStatus
 from ..models.project import ProjectManager, ProjectStatus
+
+# In-memory cache for graph data to avoid hammering Zep's rate-limited API.
+# Stale cache is served instantly on 429; a background thread refreshes it.
+_graph_data_cache: dict = {}        # graph_id -> {"data": ..., "ts": float}
+_graph_refresh_locks: dict = {}     # graph_id -> threading.Lock (one refresh at a time)
+_GRAPH_CACHE_TTL = 300              # seconds before triggering a background refresh
 
 # 获取日志器
 logger = get_logger('mirofish.api')
@@ -284,8 +291,8 @@ def build_graph():
         
         # 检查配置
         errors = []
-        if not Config.ZEP_API_KEY:
-            errors.append("ZEP_API_KEY未配置")
+        if not Config.NEO4J_PASSWORD:
+            errors.append("NEO4J未配置")
         if errors:
             logger.error(f"配置错误: {errors}")
             return jsonify({
@@ -382,7 +389,7 @@ def build_graph():
                 )
                 
                 # 创建图谱构建服务
-                builder = GraphBuilderService(api_key=Config.ZEP_API_KEY)
+                builder = GraphBuilderService()
                 
                 # 分块
                 task_manager.update_task(
@@ -426,17 +433,30 @@ def build_graph():
                         progress=progress
                     )
                 
-                task_manager.update_task(
-                    task_id,
-                    message=f"开始添加 {total_chunks} 个文本块...",
-                    progress=15
-                )
-                
+                # Count already-processed episodes to resume after a restart
+                from app.services.graphiti_adapter import _get_graphiti, _run, _neo4j_query
+                try:
+                    g = _get_graphiti()
+                    ep_count = _run(_neo4j_query(g,
+                        'MATCH (e:Episodic {group_id: $gid}) RETURN count(e) AS n',
+                        {'gid': graph_id}
+                    ))
+                    already_done = int(ep_count[0]['n']) if ep_count else 0
+                except Exception:
+                    already_done = 0
+
+                skip_chunks = already_done
+                remaining = total_chunks - skip_chunks
+                msg_start = (f"断点续传：跳过 {skip_chunks} 个已处理块，继续处理 {remaining} 块..."
+                             if skip_chunks > 0 else f"开始添加 {total_chunks} 个文本块...")
+                task_manager.update_task(task_id, message=msg_start, progress=15)
+
                 episode_uuids = builder.add_text_batches(
-                    graph_id, 
+                    graph_id,
                     chunks,
                     batch_size=3,
-                    progress_callback=add_progress_callback
+                    progress_callback=add_progress_callback,
+                    skip_chunks=skip_chunks,
                 )
                 
                 # 等待Zep处理完成（查询每个episode的processed状态）
@@ -561,32 +581,59 @@ def list_tasks():
 
 # ============== 图谱数据接口 ==============
 
+def _refresh_graph_cache(graph_id: str):
+    """Background thread: fetch graph data from Neo4j and update cache."""
+    lock = _graph_refresh_locks.setdefault(graph_id, threading.Lock())
+    if not lock.acquire(blocking=False):
+        return  # another refresh already in progress
+    try:
+        # Look up ontology from the project that owns this graph_id
+        ontology = None
+        for project in ProjectManager.list_projects():
+            if project.graph_id == graph_id and project.ontology:
+                ontology = project.ontology
+                break
+
+        builder = GraphBuilderService()
+        graph_data = builder.get_graph_data(graph_id, ontology=ontology)
+        _graph_data_cache[graph_id] = {"data": graph_data, "ts": time.time()}
+        logger.info(f"Graph cache refreshed for {graph_id}")
+    except Exception as e:
+        logger.warning(f"Background graph cache refresh failed for {graph_id}: {str(e)[:100]}")
+    finally:
+        lock.release()
+
+
 @graph_bp.route('/data/<graph_id>', methods=['GET'])
 def get_graph_data(graph_id: str):
     """
-    获取图谱数据（节点和边）
+    获取图谱数据（节点和边）。
+    - 有缓存且未过期：直接返回缓存，不调用 Zep
+    - 有缓存但已过期：立即返回旧缓存，后台异步刷新
+    - 无缓存：后台线程拉取，返回 202 让前端稍后重试
     """
-    try:
-        if not Config.ZEP_API_KEY:
-            return jsonify({
-                "success": False,
-                "error": "ZEP_API_KEY未配置"
-            }), 500
-        
-        builder = GraphBuilderService(api_key=Config.ZEP_API_KEY)
-        graph_data = builder.get_graph_data(graph_id)
-        
-        return jsonify({
-            "success": True,
-            "data": graph_data
-        })
-        
-    except Exception as e:
-        return jsonify({
-            "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
-        }), 500
+    if not Config.NEO4J_PASSWORD:
+        return jsonify({"success": False, "error": "NEO4J未配置"}), 500
+
+    cached = _graph_data_cache.get(graph_id)
+    age = time.time() - cached["ts"] if cached else None
+
+    if cached and age < _GRAPH_CACHE_TTL:
+        # Fresh cache — return immediately
+        return jsonify({"success": True, "data": cached["data"], "cached": True})
+
+    if cached:
+        # Stale cache — serve it immediately, refresh in background
+        threading.Thread(target=_refresh_graph_cache, args=(graph_id,), daemon=True).start()
+        return jsonify({"success": True, "data": cached["data"], "cached": True, "stale": True})
+
+    # No cache at all — kick off background fetch, tell frontend to retry
+    threading.Thread(target=_refresh_graph_cache, args=(graph_id,), daemon=True).start()
+    return jsonify({
+        "success": False,
+        "error": "Graph data is loading, please retry in a moment.",
+        "retry": True
+    }), 202
 
 
 @graph_bp.route('/delete/<graph_id>', methods=['DELETE'])
@@ -595,13 +642,13 @@ def delete_graph(graph_id: str):
     删除Zep图谱
     """
     try:
-        if not Config.ZEP_API_KEY:
+        if not Config.NEO4J_PASSWORD:
             return jsonify({
                 "success": False,
-                "error": "ZEP_API_KEY未配置"
+                "error": "NEO4J未配置"
             }), 500
         
-        builder = GraphBuilderService(api_key=Config.ZEP_API_KEY)
+        builder = GraphBuilderService()
         builder.delete_graph(graph_id)
         
         return jsonify({
