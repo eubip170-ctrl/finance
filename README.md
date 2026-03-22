@@ -9,6 +9,9 @@
 <em>A Simple and Universal Swarm Intelligence Engine, Predicting Anything</em>
 
 <a href="https://www.shanda.com/" target="_blank"><img src="./static/image/shanda_logo.png" alt="666ghj%2MiroFish | Shanda" height="40"/></a>
+  <a href="https://gitcgr.com/666ghj/MiroFish">
+    <img src="https://gitcgr.com/badge/666ghj/MiroFish.svg" alt="gitcgr" />
+  </a>
 
 [![GitHub Stars](https://img.shields.io/github/stars/666ghj/MiroFish?style=flat-square&color=DAA520)](https://github.com/666ghj/MiroFish/stargazers)
 [![GitHub Watchers](https://img.shields.io/github/watchers/666ghj/MiroFish?style=flat-square)](https://github.com/666ghj/MiroFish/watchers)
