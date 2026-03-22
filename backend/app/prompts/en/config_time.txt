@@ -1,0 +1,43 @@
+Based on the simulation requirements below, generate a time simulation config.
+
+{context_truncated}
+
+## Task
+Generate a time config JSON.
+
+### General principles (use as reference; adjust based on the specific event and participant group):
+- The user base is Chinese; configs must reflect Beijing time daily schedule habits
+- 00:00–05:00: Almost no activity (activity multiplier 0.05)
+- 06:00–08:00: Gradually active (activity multiplier 0.4)
+- 09:00–18:00: Moderate activity during work hours (activity multiplier 0.7)
+- 19:00–22:00: Evening peak — most active (activity multiplier 1.5)
+- 23:00 onwards: Declining activity (activity multiplier 0.5)
+- **Important**: These are reference values only — adjust based on event type and participant group characteristics
+  - Example: Student groups peak at 21:00–23:00; media is active all day; government agencies only during work hours
+  - Example: Breaking news may trigger late-night discussions, so off_peak_hours can be shortened
+
+### Return JSON format (no markdown)
+
+Example:
+{{
+    "total_simulation_hours": 72,
+    "minutes_per_round": 60,
+    "agents_per_hour_min": 5,
+    "agents_per_hour_max": 50,
+    "peak_hours": [19, 20, 21, 22],
+    "off_peak_hours": [0, 1, 2, 3, 4, 5],
+    "morning_hours": [6, 7, 8],
+    "work_hours": [9, 10, 11, 12, 13, 14, 15, 16, 17, 18],
+    "reasoning": "Time config rationale for this event"
+}}
+
+Field descriptions:
+- total_simulation_hours (int): Total simulation duration, 24–168 hours; shorter for breaking news, longer for sustained topics
+- minutes_per_round (int): Duration per round, 30–120 minutes; 60 minutes recommended
+- agents_per_hour_min (int): Minimum agents activated per hour (range: 1–{max_agents_allowed})
+- agents_per_hour_max (int): Maximum agents activated per hour (range: 1–{max_agents_allowed})
+- peak_hours (int array): Peak hours — adjust based on participant group
+- off_peak_hours (int array): Off-peak hours — typically late night
+- morning_hours (int array): Morning hours
+- work_hours (int array): Work hours
+- reasoning (string): Brief explanation of the configuration choices

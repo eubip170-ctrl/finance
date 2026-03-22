@@ -15,14 +15,14 @@
             :class="{ active: viewMode === mode }"
             @click="viewMode = mode"
           >
-            {{ { graph: '图谱', split: '双栏', workbench: '工作台' }[mode] }}
+            {{ { graph: t('nav.viewSwitcher.graph'), split: t('nav.viewSwitcher.split'), workbench: t('nav.viewSwitcher.workbench') }[mode] }}
           </button>
         </div>
       </div>
 
       <div class="header-right">
         <div class="workflow-step">
-          <span class="step-num">Step {{ currentStep }}/5</span>
+          <span class="step-num">{{ $t('mainView.step', { current: currentStep }) }}</span>
           <span class="step-name">{{ stepNames[currentStep - 1] }}</span>
         </div>
         <div class="step-divider"></div>
@@ -30,6 +30,10 @@
           <span class="dot"></span>
           {{ statusText }}
         </span>
+        <div class="step-divider"></div>
+        <button class="lang-toggle" @click="toggleLocale">
+          {{ locale === 'en' ? t('lang.zh') : t('lang.en') }}
+        </button>
       </div>
     </header>
 
@@ -48,7 +52,7 @@
 
       <!-- Right Panel: Step Components -->
       <div class="panel-wrapper right" :style="rightPanelStyle">
-        <!-- Step 1: 图谱构建 -->
+        <!-- Step 1: Graph Build -->
         <Step1GraphBuild 
           v-if="currentStep === 1"
           :currentPhase="currentPhase"
@@ -59,7 +63,7 @@
           :systemLogs="systemLogs"
           @next-step="handleNextStep"
         />
-        <!-- Step 2: 环境搭建 -->
+        <!-- Step 2: Env Setup -->
         <Step2EnvSetup
           v-else-if="currentStep === 2"
           :projectData="projectData"
@@ -77,6 +81,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import GraphPanel from '../components/GraphPanel.vue'
 import Step1GraphBuild from '../components/Step1GraphBuild.vue'
 import Step2EnvSetup from '../components/Step2EnvSetup.vue'
@@ -85,13 +90,26 @@ import { getPendingUpload, clearPendingUpload } from '../store/pendingUpload'
 
 const route = useRoute()
 const router = useRouter()
+const { t, locale } = useI18n()
+
+const toggleLocale = () => {
+  const newLocale = locale.value === 'en' ? 'zh-CN' : 'en'
+  locale.value = newLocale
+  localStorage.setItem('locale', newLocale)
+}
 
 // Layout State
 const viewMode = ref('split') // graph | split | workbench
 
 // Step State
-const currentStep = ref(1) // 1: 图谱构建, 2: 环境搭建, 3: 开始模拟, 4: 报告生成, 5: 深度互动
-const stepNames = ['图谱构建', '环境搭建', '开始模拟', '报告生成', '深度互动']
+const currentStep = ref(1) // 1: Graph Build, 2: Env Setup, 3: Run Simulation, 4: Report, 5: Interaction
+const stepNames = computed(() => [
+  t('mainView.stepNames.graphBuild'),
+  t('mainView.stepNames.envSetup'),
+  t('mainView.stepNames.runSimulation'),
+  t('mainView.stepNames.report'),
+  t('mainView.stepNames.interaction')
+])
 
 // Data State
 const currentProjectId = ref(route.params.projectId)
@@ -130,11 +148,11 @@ const statusClass = computed(() => {
 })
 
 const statusText = computed(() => {
-  if (error.value) return 'Error'
-  if (currentPhase.value >= 2) return 'Ready'
-  if (currentPhase.value === 1) return 'Building Graph'
-  if (currentPhase.value === 0) return 'Generating Ontology'
-  return 'Initializing'
+  if (error.value) return t('mainView.status.error')
+  if (currentPhase.value >= 2) return t('mainView.status.ready')
+  if (currentPhase.value === 1) return t('mainView.status.buildingGraph')
+  if (currentPhase.value === 0) return t('mainView.status.generatingOntology')
+  return t('mainView.status.initializing')
 })
 
 // --- Helpers ---
@@ -159,11 +177,11 @@ const toggleMaximize = (target) => {
 const handleNextStep = (params = {}) => {
   if (currentStep.value < 5) {
     currentStep.value++
-    addLog(`进入 Step ${currentStep.value}: ${stepNames[currentStep.value - 1]}`)
-    
-    // 如果是从 Step 2 进入 Step 3，记录模拟轮数配置
+    addLog(`Entering Step ${currentStep.value}: ${stepNames.value[currentStep.value - 1]}`)
+
+    // Log custom round count when moving from Step 2 to Step 3
     if (currentStep.value === 3 && params.maxRounds) {
-      addLog(`自定义模拟轮数: ${params.maxRounds} 轮`)
+      addLog(`Custom simulation rounds: ${params.maxRounds}`)
     }
   }
 }
@@ -171,7 +189,7 @@ const handleNextStep = (params = {}) => {
 const handleGoBack = () => {
   if (currentStep.value > 1) {
     currentStep.value--
-    addLog(`返回 Step ${currentStep.value}: ${stepNames[currentStep.value - 1]}`)
+    addLog(`Back to Step ${currentStep.value}: ${stepNames.value[currentStep.value - 1]}`)
   }
 }
 
@@ -536,5 +554,24 @@ onUnmounted(() => {
 
 .panel-wrapper.left {
   border-right: 1px solid #EAEAEA;
+}
+
+.lang-toggle {
+  background: transparent;
+  border: 1px solid #E0E0E0;
+  color: #666;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: 0.5px;
+}
+
+.lang-toggle:hover {
+  border-color: #999;
+  color: #000;
 }
 </style>

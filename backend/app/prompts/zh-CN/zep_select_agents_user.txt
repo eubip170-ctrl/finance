@@ -1,0 +1,10 @@
+采访需求：
+{interview_requirement}
+
+模拟背景：
+{simulation_requirement}
+
+可选择的Agent列表（共{agent_count}个）：
+{agent_summaries_json}
+
+请选择最多{max_agents}个最适合采访的Agent，并说明选择理由。

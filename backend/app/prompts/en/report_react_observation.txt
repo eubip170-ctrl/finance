@@ -1,0 +1,11 @@
+Observation (retrieval result):
+
+═══ Tool {tool_name} returned ═══
+{result}
+
+═══════════════════════════════════════════════════════════════
+Tools called so far: {tool_calls_count}/{max_tool_calls} (used: {used_tools_str}){unused_hint}
+- If you have sufficient information: output section content starting with "Final Answer:"
+  (must quote the source text above)
+- If you need more information: call one tool to continue retrieving
+═══════════════════════════════════════════════════════════════

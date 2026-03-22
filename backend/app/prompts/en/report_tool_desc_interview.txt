@@ -1,0 +1,28 @@
+[In-Depth Interview — Real Agent Interviews (Dual Platform)]
+Calls the OASIS simulation environment's interview API to conduct real interviews
+with live simulation agents. This is NOT an LLM simulation — it calls the actual
+interview interface and returns raw agent responses.
+By default it interviews on both Twitter and Reddit simultaneously for broader coverage.
+
+How it works:
+1. Automatically reads persona files to learn about all simulation agents.
+2. Intelligently selects agents most relevant to the interview topic
+   (e.g. students, media, officials).
+3. Auto-generates interview questions.
+4. Calls /api/simulation/interview/batch to conduct real interviews on both platforms.
+5. Aggregates all results and provides a multi-perspective analysis.
+
+[When to use]
+- Understanding different stakeholder views on an event
+  (What do students think? Media? Officials?).
+- Collecting opinions and positions from multiple parties.
+- Obtaining authentic answers from simulation agents (from the OASIS environment).
+- Making the report more vivid with "interview transcripts".
+
+[Returns]
+- Identity information of the interviewed agents
+- Each agent's responses on both Twitter and Reddit
+- Key quotes (directly quotable)
+- Interview summary and perspective comparison
+
+[IMPORTANT] Requires the OASIS simulation environment to be running.

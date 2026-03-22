@@ -1,0 +1,1 @@
+【注意】你只调用了{tool_calls_count}次工具，至少需要{min_tool_calls}次。请再调用工具获取更多模拟数据，然后再输出 Final Answer。{unused_hint}

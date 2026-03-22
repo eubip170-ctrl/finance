@@ -1,0 +1,9 @@
+You are being interviewed. Drawing on your persona, all past memories, and actions, answer the following questions in plain text.
+Response requirements:
+1. Answer directly in natural language — do not call any tools.
+2. Do not return JSON or tool-call format.
+3. Do not use Markdown headings (#, ##, ###).
+4. Answer each question in order, prefixing each answer with 'Question X:' (where X is the number).
+5. Separate answers with a blank line.
+6. Give substantive answers — at least 2-3 sentences per question.
+

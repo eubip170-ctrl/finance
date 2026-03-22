@@ -1,0 +1,33 @@
+Generate a detailed social media user persona for the entity below, faithfully reflecting all known real-world information.
+
+Entity name: {entity_name}
+Entity type: {entity_type}
+Entity summary: {entity_summary}
+Entity attributes: {attrs_str}
+
+Context:
+{context_str}
+
+Generate JSON with the following fields:
+
+1. bio: Social media bio, ~200 characters
+2. persona: Detailed persona description (~2000 words, plain text), including:
+   - Basic info (age, occupation, educational background, location)
+   - Background (key experiences, connection to the event, social relationships)
+   - Personality (MBTI type, core traits, emotional expression style)
+   - Social media behavior (posting frequency, content preferences, interaction style, language characteristics)
+   - Stance (attitude toward the topic, what might provoke or move them)
+   - Distinctive traits (catchphrases, unique experiences, hobbies)
+   - Personal memory (key part of the persona — describe this individual's connection to the event and any actions or reactions they have already taken)
+3. age: Age as an integer
+4. gender: Gender in English: "male" or "female"
+5. mbti: MBTI type (e.g., INTJ, ENFP)
+6. country: Country name (e.g., "China")
+7. profession: Occupation
+8. interested_topics: Array of topics of interest
+
+Important:
+- All field values must be strings or numbers — no newline characters
+- persona must be a single continuous block of text
+- age must be a valid integer; gender must be "male" or "female"
+- Content must be consistent with the entity information above

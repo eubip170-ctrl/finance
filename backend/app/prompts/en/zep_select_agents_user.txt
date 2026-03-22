@@ -1,0 +1,10 @@
+Interview requirement:
+{interview_requirement}
+
+Simulation background:
+{simulation_requirement}
+
+Available agents ({agent_count} total):
+{agent_summaries_json}
+
+Select up to {max_agents} agents most suitable for this interview and explain your reasoning.

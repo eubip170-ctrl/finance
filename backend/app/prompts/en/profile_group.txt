@@ -1,0 +1,33 @@
+Generate a detailed social media account profile for the institution/group entity below, faithfully reflecting all known real-world information.
+
+Entity name: {entity_name}
+Entity type: {entity_type}
+Entity summary: {entity_summary}
+Entity attributes: {attrs_str}
+
+Context:
+{context_str}
+
+Generate JSON with the following fields:
+
+1. bio: Official account bio, ~200 characters, professional in tone
+2. persona: Detailed account profile (~2000 words, plain text), including:
+   - Institution basics (official name, nature of the institution, founding background, main functions)
+   - Account positioning (account type, target audience, core purpose)
+   - Communication style (language characteristics, common expressions, topics to avoid)
+   - Content characteristics (content types, posting frequency, active time periods)
+   - Stance (official position on key topics, how the institution handles controversy)
+   - Special notes (audience profile it represents, operational habits)
+   - Institutional memory (key part of the persona — describe this institution's connection to the event and any actions or statements it has already made)
+3. age: Fixed value 30 (virtual age for institutional accounts)
+4. gender: Fixed value "other" (institutional accounts use "other" to indicate non-individual)
+5. mbti: MBTI type describing the account's style (e.g., ISTJ for formal and conservative)
+6. country: Country name (e.g., "China")
+7. profession: Description of the institution's function
+8. interested_topics: Array of areas of focus
+
+Important:
+- All field values must be strings or numbers — null values are not allowed
+- persona must be a single continuous block of text — no newline characters
+- age must be the integer 30; gender must be the string "other"
+- The account's voice must match its institutional identity

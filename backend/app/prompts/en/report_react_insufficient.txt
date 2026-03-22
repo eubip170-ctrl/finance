@@ -1,0 +1,1 @@
+[Note] You have only called {tool_calls_count} tool(s); at least {min_tool_calls} are required. Please call more tools to retrieve simulation data before outputting Final Answer. {unused_hint}

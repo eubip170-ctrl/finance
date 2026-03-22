@@ -1,0 +1,35 @@
+Based on the information below, generate social media activity configs for each entity.
+
+Simulation requirement: {simulation_requirement}
+
+## Entity list
+```json
+{entity_list_json}
+```
+
+## Task
+Generate an activity config for each entity. Key guidelines:
+- **Time must match China daily schedule**: Almost no activity 00:00–05:00; most active 19:00–22:00
+- **Official institutions** (University/GovernmentAgency): Low activity (0.1–0.3), active during work hours (9–17), slow response (60–240 min), high influence (2.5–3.0)
+- **Media** (MediaOutlet): Medium activity (0.4–0.6), active all day (8–23), fast response (5–30 min), high influence (2.0–2.5)
+- **Individuals** (Student/Person/Alumni): High activity (0.6–0.9), mainly evening (18–23), fast response (1–15 min), low influence (0.8–1.2)
+- **Public figures/experts**: Medium activity (0.4–0.6), medium-high influence (1.5–2.0)
+
+Return JSON format (no markdown):
+{{
+    "agent_configs": [
+        {{
+            "agent_id": <must match the input agent_id>,
+            "activity_level": <0.0–1.0>,
+            "posts_per_hour": <posting frequency>,
+            "comments_per_hour": <comment frequency>,
+            "active_hours": [<list of active hours, following China daily schedule>],
+            "response_delay_min": <minimum response delay in minutes>,
+            "response_delay_max": <maximum response delay in minutes>,
+            "sentiment_bias": <-1.0 to 1.0>,
+            "stance": "<supportive/opposing/neutral/observer>",
+            "influence_weight": <influence weight>
+        }},
+        ...
+    ]
+}}

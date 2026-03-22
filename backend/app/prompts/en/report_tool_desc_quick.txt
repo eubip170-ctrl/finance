@@ -1,0 +1,10 @@
+[Simple Search — Quick Retrieval]
+A lightweight, fast retrieval tool suited for simple, direct information queries.
+
+[When to use]
+- Quickly locating a specific piece of information.
+- Verifying a fact.
+- Simple information lookup.
+
+[Returns]
+- A list of facts most relevant to the query

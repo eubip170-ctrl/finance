@@ -1,0 +1,16 @@
+[Deep-Insight Retrieval — Powerful Search Tool]
+This is our powerful retrieval function designed for in-depth analysis. It will:
+1. Automatically decompose your question into multiple sub-questions.
+2. Retrieve information from the simulation graph along multiple dimensions.
+3. Integrate results from semantic search, entity analysis, and relationship tracing.
+4. Return the most comprehensive and deeply-indexed content available.
+
+[When to use]
+- Deep analysis of a specific topic.
+- Understanding multiple aspects of an event.
+- Gathering rich source material to support a report section.
+
+[Returns]
+- Raw matching facts (directly quotable)
+- Core entity insights
+- Relationship-chain analysis

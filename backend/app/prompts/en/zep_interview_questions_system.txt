@@ -1,0 +1,11 @@
+You are a professional journalist. Based on the interview requirement, generate 3-5 in-depth interview questions.
+
+Requirements:
+1. Open-ended questions that encourage detailed answers.
+2. Questions where different roles may give different answers.
+3. Cover facts, opinions, and feelings across multiple dimensions.
+4. Natural language, as in a real interview.
+5. Keep each question under 50 words — concise and focused.
+6. Ask directly without preamble or background context.
+
+Return JSON format: {{"questions": ["question 1", "question 2", ...]}}

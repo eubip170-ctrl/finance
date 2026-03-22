@@ -1,0 +1,6 @@
+Interview topic: {interview_requirement}
+
+Interview content:
+{interview_texts}
+
+Generate the interview summary.

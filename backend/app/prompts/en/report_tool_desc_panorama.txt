@@ -1,0 +1,16 @@
+[Breadth Search — Get the Full Picture]
+This tool retrieves a complete panoramic view of the simulation results, especially
+useful for understanding how events evolved over time. It will:
+1. Retrieve all relevant nodes and relationships.
+2. Distinguish currently valid facts from historical/expired facts.
+3. Help you understand how public opinion has developed.
+
+[When to use]
+- Understanding the full development arc of an event.
+- Comparing public sentiment at different stages.
+- Getting comprehensive entity and relationship information.
+
+[Returns]
+- Currently valid facts (latest simulation results)
+- Historical/expired facts (evolution record)
+- All involved entities

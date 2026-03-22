@@ -1,0 +1,20 @@
+[Prediction scenario]
+Variable injected into the simulation world (simulation requirement): {simulation_requirement}
+
+[Simulation world scale]
+- Number of entities participating in the simulation: {total_nodes}
+- Number of relationships generated between entities: {total_edges}
+- Entity type distribution: {entity_types}
+- Number of active agents: {total_entities}
+
+[Sample of simulated future facts]
+{related_facts_json}
+
+Please examine this future rehearsal with a god's-eye view:
+1. Under the conditions we set, what state did the future reach?
+2. How did each population group (agent) react and act?
+3. What noteworthy future trends did this simulation reveal?
+
+Design the most appropriate section structure based on the prediction results.
+
+[Reminder] Section count: minimum 2, maximum 5 — content must be concise and focused on core prediction findings.

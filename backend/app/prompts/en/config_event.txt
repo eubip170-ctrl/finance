@@ -1,0 +1,28 @@
+Based on the simulation requirements below, generate an event configuration.
+
+Simulation requirement: {simulation_requirement}
+
+{context_truncated}
+
+## Available entity types and examples
+{type_info}
+
+## Task
+Generate an event config JSON:
+- Extract trending topic keywords
+- Describe the direction of opinion development
+- Design initial post content; **each post must specify poster_type (the poster's entity type)**
+
+**Important**: poster_type must be chosen from the "Available entity types" listed above so that the initial post can be assigned to the correct agent.
+Examples: official statements should be posted by Official/University types; news by MediaOutlet; student opinions by Student.
+
+Return JSON format (no markdown):
+{{
+    "hot_topics": ["keyword1", "keyword2", ...],
+    "narrative_direction": "<description of how opinion develops>",
+    "initial_posts": [
+        {{"content": "Post content", "poster_type": "EntityType (must match an available type)"}},
+        ...
+    ],
+    "reasoning": "<brief explanation>"
+}}

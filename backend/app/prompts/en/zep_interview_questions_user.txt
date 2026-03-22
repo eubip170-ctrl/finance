@@ -1,0 +1,7 @@
+Interview requirement: {interview_requirement}
+
+Simulation background: {simulation_requirement}
+
+Interviewee roles: {agent_roles}
+
+Generate 3-5 interview questions.

@@ -1,0 +1,9 @@
+Simulation background:
+{simulation_requirement}
+
+{report_context_line}
+
+Break the following question into {max_queries} sub-questions:
+{query}
+
+Return a JSON list of sub-questions.

@@ -1,0 +1,23 @@
+Completed sections (read carefully to avoid repetition):
+{previous_content}
+
+═══════════════════════════════════════════════════════════════
+[Current task] Write section: {section_title}
+═══════════════════════════════════════════════════════════════
+
+[Important reminders]
+1. Read the completed sections above carefully to avoid repeating the same content!
+2. You MUST call tools to retrieve simulation data before writing.
+3. Mix different tools — do not use only one.
+4. Report content must come from retrieval results; do not use your own knowledge.
+
+[⚠️ Formatting warning — must be followed]
+- ❌ Do NOT write any headings (#, ##, ###, ####)
+- ❌ Do NOT write "{{section_title}}" as the opening line
+- ✅ Section titles are added automatically by the system
+- ✅ Start directly with body text; use **bold** instead of sub-section headings
+
+Begin:
+1. First think (Thought) about what information this section needs.
+2. Then call a tool (Action) to retrieve simulation data.
+3. Once you have gathered enough information, output Final Answer (pure body text, no headings).

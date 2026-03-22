@@ -1,0 +1,1 @@
+当前只调用了 {tool_calls_count} 次工具，至少需要 {min_tool_calls} 次。请调用工具获取模拟数据。{unused_hint}

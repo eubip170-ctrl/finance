@@ -1,0 +1,7 @@
+采访需求：{interview_requirement}
+
+模拟背景：{simulation_requirement}
+
+采访对象角色：{agent_roles}
+
+请生成3-5个采访问题。

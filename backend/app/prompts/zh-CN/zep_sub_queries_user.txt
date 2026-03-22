@@ -1,0 +1,9 @@
+模拟需求背景：
+{simulation_requirement}
+
+{report_context_line}
+
+请将以下问题分解为{max_queries}个子问题：
+{query}
+
+返回JSON格式的子问题列表。

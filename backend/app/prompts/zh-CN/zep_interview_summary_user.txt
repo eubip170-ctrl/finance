@@ -1,0 +1,6 @@
+采访主题：{interview_requirement}
+
+采访内容：
+{interview_texts}
+
+请生成采访摘要。
