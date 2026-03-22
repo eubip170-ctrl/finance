@@ -15,7 +15,7 @@
             :class="{ active: viewMode === mode }"
             @click="viewMode = mode"
           >
-            {{ { graph: '图谱', split: '双栏', workbench: '工作台' }[mode] }}
+            {{ $t('common.' + mode) }}
           </button>
         </div>
       </div>
@@ -23,13 +23,15 @@
       <div class="header-right">
         <div class="workflow-step">
           <span class="step-num">Step 2/5</span>
-          <span class="step-name">环境搭建</span>
+          <span class="step-name">{{ stepNames[1] }}</span>
         </div>
         <div class="step-divider"></div>
         <span class="status-indicator" :class="statusClass">
           <span class="dot"></span>
           {{ statusText }}
         </span>
+        <div class="step-divider"></div>
+        <button class="lang-toggle" @click="toggleLocale">{{ $t('nav.langSwitch') }}</button>
       </div>
     </header>
 
@@ -46,7 +48,7 @@
         />
       </div>
 
-      <!-- Right Panel: Step2 环境搭建 -->
+      <!-- Right Panel: Step2 Env Setup -->
       <div class="panel-wrapper right" :style="rightPanelStyle">
         <Step2EnvSetup
           :simulationId="currentSimulationId"
@@ -66,11 +68,18 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import GraphPanel from '../components/GraphPanel.vue'
 import Step2EnvSetup from '../components/Step2EnvSetup.vue'
 import { getProject, getGraphData } from '../api/graph'
 import { getSimulation, stopSimulation, getEnvStatus, closeSimulationEnv } from '../api/simulation'
 
+const { t, locale } = useI18n()
+const stepNames = computed(() => t('common.stepNames'))
+
+const toggleLocale = () => {
+  locale.value = locale.value === 'zh' ? 'en' : 'zh'
+}
 const route = useRoute()
 const router = useRouter()
 
@@ -137,7 +146,6 @@ const toggleMaximize = (target) => {
 }
 
 const handleGoBack = () => {
-  // 返回到 process 页面
   if (projectData.value?.project_id) {
     router.push({ name: 'Process', params: { projectId: projectData.value.project_id } })
   } else {
@@ -146,122 +154,102 @@ const handleGoBack = () => {
 }
 
 const handleNextStep = (params = {}) => {
-  addLog('进入 Step 3: 开始模拟')
-  
-  // 记录模拟轮数配置
+  addLog(t('views.enterStep', { step: 3, name: t('common.stepNames')[2] }))
+
   if (params.maxRounds) {
-    addLog(`自定义模拟轮数: ${params.maxRounds} 轮`)
+    addLog(t('views.customRounds', { n: params.maxRounds }))
   } else {
-    addLog('使用自动配置的模拟轮数')
+    addLog(t('views.useAutoRounds'))
   }
-  
-  // 构建路由参数
+
   const routeParams = {
     name: 'SimulationRun',
     params: { simulationId: currentSimulationId.value }
   }
-  
-  // 如果有自定义轮数，通过 query 参数传递
+
   if (params.maxRounds) {
     routeParams.query = { maxRounds: params.maxRounds }
   }
-  
-  // 跳转到 Step 3 页面
+
   router.push(routeParams)
 }
 
 // --- Data Logic ---
 
-/**
- * 检查并关闭正在运行的模拟
- * 当用户从 Step 3 返回到 Step 2 时，默认用户要退出模拟
- */
 const checkAndStopRunningSimulation = async () => {
   if (!currentSimulationId.value) return
-  
+
   try {
-    // 先检查模拟环境是否存活
     const envStatusRes = await getEnvStatus({ simulation_id: currentSimulationId.value })
-    
+
     if (envStatusRes.success && envStatusRes.data?.env_alive) {
-      addLog('检测到模拟环境正在运行，正在关闭...')
-      
-      // 尝试优雅关闭模拟环境
+      addLog(t('views.simEnvRunning'))
+
       try {
-        const closeRes = await closeSimulationEnv({ 
+        const closeRes = await closeSimulationEnv({
           simulation_id: currentSimulationId.value,
-          timeout: 10  // 10秒超时
+          timeout: 10
         })
-        
+
         if (closeRes.success) {
-          addLog('✓ 模拟环境已关闭')
+          addLog(t('views.simEnvClosed'))
         } else {
-          addLog(`关闭模拟环境失败: ${closeRes.error || '未知错误'}`)
-          // 如果优雅关闭失败，尝试强制停止
+          addLog(t('views.simEnvCloseFailed', { msg: closeRes.error || t('common.unknownError') }))
           await forceStopSimulation()
         }
       } catch (closeErr) {
-        addLog(`关闭模拟环境异常: ${closeErr.message}`)
-        // 如果优雅关闭异常，尝试强制停止
+        addLog(t('views.simEnvCloseError', { msg: closeErr.message }))
         await forceStopSimulation()
       }
     } else {
-      // 环境未运行，但可能进程还在，检查模拟状态
       const simRes = await getSimulation(currentSimulationId.value)
       if (simRes.success && simRes.data?.status === 'running') {
-        addLog('检测到模拟状态为运行中，正在停止...')
+        addLog(t('views.simRunning'))
         await forceStopSimulation()
       }
     }
   } catch (err) {
-    // 检查环境状态失败不影响后续流程
-    console.warn('检查模拟状态失败:', err)
+    console.warn('Check sim status failed:', err)
   }
 }
 
-/**
- * 强制停止模拟
- */
 const forceStopSimulation = async () => {
   try {
     const stopRes = await stopSimulation({ simulation_id: currentSimulationId.value })
     if (stopRes.success) {
-      addLog('✓ 模拟已强制停止')
+      addLog(t('views.simForceStopped'))
     } else {
-      addLog(`强制停止模拟失败: ${stopRes.error || '未知错误'}`)
+      addLog(t('views.simForceStopFailed', { msg: stopRes.error || t('common.unknownError') }))
     }
   } catch (err) {
-    addLog(`强制停止模拟异常: ${err.message}`)
+    addLog(t('views.simForceStopError', { msg: err.message }))
   }
 }
 
 const loadSimulationData = async () => {
   try {
-    addLog(`加载模拟数据: ${currentSimulationId.value}`)
-    
-    // 获取 simulation 信息
+    addLog(t('views.loadingSimData', { id: currentSimulationId.value }))
+
     const simRes = await getSimulation(currentSimulationId.value)
     if (simRes.success && simRes.data) {
       const simData = simRes.data
-      
-      // 获取 project 信息
+
       if (simData.project_id) {
         const projRes = await getProject(simData.project_id)
         if (projRes.success && projRes.data) {
           projectData.value = projRes.data
-          addLog(`项目加载成功: ${projRes.data.project_id}`)
-          
-          // 获取 graph 数据
+          addLog(t('views.projectLoaded', { id: projRes.data.project_id }))
+
           if (projRes.data.graph_id) {
             await loadGraph(projRes.data.graph_id)
           }
         }
       }
     } else {
-      addLog(`加载模拟数据失败: ${simRes.error || '未知错误'}`)
+      addLog(t('views.loadSimFailed', { msg: simRes.error || t('common.unknownError') }))
     }
   } catch (err) {
-    addLog(`加载异常: ${err.message}`)
+    addLog(t('views.loadError', { msg: err.message }))
   }
 }
 
@@ -271,10 +259,10 @@ const loadGraph = async (graphId) => {
     const res = await getGraphData(graphId)
     if (res.success) {
       graphData.value = res.data
-      addLog('图谱数据加载成功')
+      addLog(t('views.graphDataLoaded'))
     }
   } catch (err) {
-    addLog(`图谱加载失败: ${err.message}`)
+    addLog(t('views.graphLoadFailed', { msg: err.message }))
   } finally {
     graphLoading.value = false
   }
@@ -287,12 +275,10 @@ const refreshGraph = () => {
 }
 
 onMounted(async () => {
-  addLog('SimulationView 初始化')
-  
-  // 检查并关闭正在运行的模拟（用户从 Step 3 返回时）
+  addLog(t('views.viewInit', { view: 'SimulationView' }))
+
   await checkAndStopRunningSimulation()
-  
-  // 加载模拟数据
+
   loadSimulationData()
 })
 </script>
@@ -429,6 +415,22 @@ onMounted(async () => {
 
 .panel-wrapper.left {
   border-right: 1px solid #EAEAEA;
+}
+
+.lang-toggle {
+  background: transparent;
+  border: 1px solid #DDD;
+  color: #666;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.lang-toggle:hover {
+  border-color: #000;
+  color: #000;
 }
 </style>
 
