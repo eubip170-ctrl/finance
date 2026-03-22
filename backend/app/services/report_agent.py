@@ -1294,11 +1294,17 @@ class ReportAgent:
         for iteration in range(max_iterations):
             if progress_callback:
                 progress_callback(
-                    "generating", 
+                    "generating",
                     int((iteration / max_iterations) * 100),
                     f"深度检索与撰写中 ({tool_calls_count}/{self.MAX_TOOL_CALLS_PER_SECTION})"
                 )
-            
+
+            # 防止消息历史无限增长导致上下文溢出
+            # 保留 system + user prompt（前2条）和最近的对话轮次
+            if len(messages) > 14:
+                messages = messages[:2] + messages[-12:]
+                logger.info(f"章节 {section.title}: 消息历史已裁剪至 {len(messages)} 条以防止上下文溢出")
+
             # 调用LLM
             response = self.llm.chat(
                 messages=messages,
@@ -1502,7 +1508,11 @@ class ReportAgent:
         # 达到最大迭代次数，强制生成内容
         logger.warning(f"章节 {section.title} 达到最大迭代次数，强制生成")
         messages.append({"role": "user", "content": REACT_FORCE_FINAL_MSG})
-        
+
+        # 裁剪消息以防止强制收尾时上下文溢出
+        if len(messages) > 14:
+            messages = messages[:2] + messages[-12:]
+
         response = self.llm.chat(
             messages=messages,
             temperature=0.5,
