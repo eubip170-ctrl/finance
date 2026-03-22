@@ -137,7 +137,10 @@ class SimulationManager:
     
     def _get_simulation_dir(self, simulation_id: str) -> str:
         """获取模拟数据目录"""
-        sim_dir = os.path.join(self.SIMULATION_DATA_DIR, simulation_id)
+        safe_id = os.path.basename(simulation_id)
+        if not safe_id or safe_id != simulation_id:
+            raise ValueError(f"Invalid simulation_id: {simulation_id}")
+        sim_dir = os.path.join(self.SIMULATION_DATA_DIR, safe_id)
         os.makedirs(sim_dir, exist_ok=True)
         return sim_dir
     
@@ -484,7 +487,10 @@ class SimulationManager:
             raise ValueError(f"模拟不存在: {simulation_id}")
         
         sim_dir = self._get_simulation_dir(simulation_id)
-        profile_path = os.path.join(sim_dir, f"{platform}_profiles.json")
+        safe_platform = os.path.basename(platform)
+        if not safe_platform or safe_platform != platform:
+            raise ValueError(f"Invalid platform: {platform}")
+        profile_path = os.path.join(sim_dir, f"{safe_platform}_profiles.json")
         
         if not os.path.exists(profile_path):
             return []

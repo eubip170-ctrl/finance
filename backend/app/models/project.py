@@ -112,7 +112,10 @@ class ProjectManager:
     @classmethod
     def _get_project_dir(cls, project_id: str) -> str:
         """获取项目目录路径"""
-        return os.path.join(cls.PROJECTS_DIR, project_id)
+        safe_id = os.path.basename(project_id)
+        if not safe_id or safe_id != project_id:
+            raise ValueError(f"Invalid project_id: {project_id}")
+        return os.path.join(cls.PROJECTS_DIR, safe_id)
     
     @classmethod
     def _get_project_meta_path(cls, project_id: str) -> str:

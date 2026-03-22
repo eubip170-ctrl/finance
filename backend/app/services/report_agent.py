@@ -1909,7 +1909,10 @@ class ReportManager:
     @classmethod
     def _get_report_folder(cls, report_id: str) -> str:
         """获取报告文件夹路径"""
-        return os.path.join(cls.REPORTS_DIR, report_id)
+        safe_id = os.path.basename(report_id)
+        if not safe_id or safe_id != report_id:
+            raise ValueError(f"Invalid report_id: {report_id}")
+        return os.path.join(cls.REPORTS_DIR, safe_id)
     
     @classmethod
     def _ensure_report_folder(cls, report_id: str) -> str:
