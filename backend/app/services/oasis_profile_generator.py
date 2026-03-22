@@ -139,12 +139,19 @@ class OasisAgentProfile:
         }
 
 
+def _with_language(messages: list, language: str) -> list:
+    """Prepend language instruction to messages when not English."""
+    if language and language != "en":
+        return [{"role": "system", "content": f"Generate all your output in the language with BCP 47 tag '{language}'. Do not use any other language."}] + list(messages)
+    return list(messages)
+
+
 class OasisProfileGenerator:
     """
     OASIS Profile生成器
-    
+
     将Zep图谱中的实体转换为OASIS模拟所需的Agent Profile
-    
+
     优化特性：
     1. 调用Zep图谱检索功能获取更丰富的上下文
     2. 生成非常详细的人设（包括基本信息、职业经历、性格特征、社交媒体行为等）
@@ -209,10 +216,11 @@ class OasisProfileGenerator:
                 logger.warning(f"Zep客户端初始化失败: {e}")
     
     def generate_profile_from_entity(
-        self, 
-        entity: EntityNode, 
+        self,
+        entity: EntityNode,
         user_id: int,
-        use_llm: bool = True
+        use_llm: bool = True,
+        language: str = "en"
     ) -> OasisAgentProfile:
         """
         从Zep实体生成OASIS Agent Profile
@@ -241,7 +249,8 @@ class OasisProfileGenerator:
                 entity_type=entity_type,
                 entity_summary=entity.summary,
                 entity_attributes=entity.attributes,
-                context=context
+                context=context,
+                language=language
             )
         else:
             # 使用规则生成基础人设
@@ -499,7 +508,8 @@ class OasisProfileGenerator:
         entity_type: str,
         entity_summary: str,
         entity_attributes: Dict[str, Any],
-        context: str
+        context: str,
+        language: str = "en"
     ) -> Dict[str, Any]:
         """
         使用LLM生成非常详细的人设
@@ -528,10 +538,10 @@ class OasisProfileGenerator:
             try:
                 response = self.client.chat.completions.create(
                     model=self.model_name,
-                    messages=[
+                    messages=_with_language([
                         {"role": "system", "content": self._get_system_prompt(is_individual)},
                         {"role": "user", "content": prompt}
-                    ],
+                    ], language),
                     response_format={"type": "json_object"},
                     temperature=0.7 - (attempt * 0.1)  # 每次重试降低温度
                     # 不设置max_tokens，让LLM自由发挥
@@ -855,7 +865,8 @@ class OasisProfileGenerator:
         graph_id: Optional[str] = None,
         parallel_count: int = 5,
         realtime_output_path: Optional[str] = None,
-        output_platform: str = "reddit"
+        output_platform: str = "reddit",
+        language: str = "en"
     ) -> List[OasisAgentProfile]:
         """
         批量从实体生成Agent Profile（支持并行生成）
@@ -923,7 +934,8 @@ class OasisProfileGenerator:
                 profile = self.generate_profile_from_entity(
                     entity=entity,
                     user_id=idx,
-                    use_llm=use_llm
+                    use_llm=use_llm,
+                    language=language
                 )
                 
                 # 实时输出生成的人设到控制台和日志

@@ -6,7 +6,7 @@
 import os
 import traceback
 import threading
-from flask import request, jsonify
+from flask import request, jsonify, g
 
 from . import graph_bp
 from ..config import Config
@@ -213,11 +213,13 @@ def generate_ontology():
         
         # 生成本体
         logger.info("调用 LLM 生成本体定义...")
+        locale = getattr(g, 'locale', 'en')
         generator = OntologyGenerator()
         ontology = generator.generate(
             document_texts=document_texts,
             simulation_requirement=simulation_requirement,
-            additional_context=additional_context if additional_context else None
+            additional_context=additional_context if additional_context else None,
+            language=locale
         )
         
         # 保存本体到项目
@@ -370,6 +372,9 @@ def build_graph():
         project.graph_build_task_id = task_id
         ProjectManager.save_project(project)
         
+        # Capture locale before spawning thread — g is not accessible inside threads
+        locale = getattr(g, 'locale', 'en')
+
         # 启动后台任务
         def build_task():
             build_logger = get_logger('mirofish.build')

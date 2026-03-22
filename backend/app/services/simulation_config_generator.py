@@ -196,10 +196,17 @@ class SimulationParameters:
         return json.dumps(self.to_dict(), ensure_ascii=False, indent=indent)
 
 
+def _with_language(messages: list, language: str) -> list:
+    """Prepend language instruction to messages when not English."""
+    if language and language != "en":
+        return [{"role": "system", "content": f"Generate all your output in the language with BCP 47 tag '{language}'. Do not use any other language."}] + list(messages)
+    return list(messages)
+
+
 class SimulationConfigGenerator:
     """
     模拟配置智能生成器
-    
+
     使用LLM分析模拟需求、文档内容、图谱实体信息，
     自动生成最佳的模拟参数配置
     
@@ -250,6 +257,7 @@ class SimulationConfigGenerator:
         enable_twitter: bool = True,
         enable_reddit: bool = True,
         progress_callback: Optional[Callable[[int, int, str], None]] = None,
+        language: str = "en"
     ) -> SimulationParameters:
         """
         智能生成完整的模拟配置（分步生成）
@@ -269,7 +277,10 @@ class SimulationConfigGenerator:
             SimulationParameters: 完整的模拟参数
         """
         logger.info(f"开始智能生成模拟配置: simulation_id={simulation_id}, 实体数={len(entities)}")
-        
+
+        # Store language so _call_llm_with_retry can use it
+        self._language = language
+
         # 计算总步骤数
         num_batches = math.ceil(len(entities) / self.AGENTS_PER_BATCH)
         total_steps = 3 + num_batches  # 时间配置 + 事件配置 + N批Agent + 平台配置
@@ -433,18 +444,21 @@ class SimulationConfigGenerator:
     def _call_llm_with_retry(self, prompt: str, system_prompt: str) -> Dict[str, Any]:
         """带重试的LLM调用，包含JSON修复逻辑"""
         import re
-        
+
+        # Use language stored by generate_config (falls back to "en")
+        language = getattr(self, '_language', 'en')
+
         max_attempts = 3
         last_error = None
-        
+
         for attempt in range(max_attempts):
             try:
                 response = self.client.chat.completions.create(
                     model=self.model_name,
-                    messages=[
+                    messages=_with_language([
                         {"role": "system", "content": system_prompt},
                         {"role": "user", "content": prompt}
-                    ],
+                    ], language),
                     response_format={"type": "json_object"},
                     temperature=0.7 - (attempt * 0.1)  # 每次重试降低温度
                     # 不设置max_tokens，让LLM自由发挥

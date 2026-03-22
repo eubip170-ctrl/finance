@@ -168,36 +168,44 @@ class OntologyGenerator:
         self,
         document_texts: List[str],
         simulation_requirement: str,
-        additional_context: Optional[str] = None
+        additional_context: Optional[str] = None,
+        language: str = "en"
     ) -> Dict[str, Any]:
         """
         生成本体定义
-        
+
         Args:
             document_texts: 文档文本列表
             simulation_requirement: 模拟需求描述
             additional_context: 额外上下文
-            
+            language: BCP 47 language tag for LLM output (default: "en")
+
         Returns:
             本体定义（entity_types, edge_types等）
         """
         # 构建用户消息
         user_message = self._build_user_message(
-            document_texts, 
+            document_texts,
             simulation_requirement,
             additional_context
         )
-        
+
         messages = [
             {"role": "system", "content": ONTOLOGY_SYSTEM_PROMPT},
             {"role": "user", "content": user_message}
         ]
-        
+
+        # Prepend language instruction when not English
+        if language and language != "en":
+            messages = [
+                {"role": "system", "content": f"Generate all your output in the language with BCP 47 tag '{language}'. Do not use any other language."}
+            ] + messages
+
         # 调用LLM
         result = self.llm_client.chat_json(
             messages=messages,
             temperature=0.3,
-            max_tokens=4096
+            max_tokens=8192
         )
         
         # 验证和后处理

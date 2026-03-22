@@ -6,7 +6,7 @@ Report API路由
 import os
 import traceback
 import threading
-from flask import request, jsonify, send_file
+from flask import request, jsonify, send_file, g
 
 from . import report_bp
 from ..config import Config
@@ -120,6 +120,9 @@ def generate_report():
             }
         )
         
+        # Capture locale before spawning thread — g is not accessible inside threads
+        locale = getattr(g, 'locale', 'en')
+
         # 定义后台任务
         def run_generate():
             try:
@@ -129,14 +132,14 @@ def generate_report():
                     progress=0,
                     message="初始化Report Agent..."
                 )
-                
+
                 # 创建Report Agent
                 agent = ReportAgent(
                     graph_id=graph_id,
                     simulation_id=simulation_id,
                     simulation_requirement=simulation_requirement
                 )
-                
+
                 # 进度回调
                 def progress_callback(stage, progress, message):
                     task_manager.update_task(
@@ -144,11 +147,12 @@ def generate_report():
                         progress=progress,
                         message=f"[{stage}] {message}"
                     )
-                
+
                 # 生成报告（传入预先生成的 report_id）
                 report = agent.generate_report(
                     progress_callback=progress_callback,
-                    report_id=report_id
+                    report_id=report_id,
+                    language=locale
                 )
                 
                 # 保存报告
@@ -542,8 +546,9 @@ def chat_with_report_agent():
             simulation_id=simulation_id,
             simulation_requirement=simulation_requirement
         )
-        
-        result = agent.chat(message=message, chat_history=chat_history)
+
+        locale = getattr(g, 'locale', 'en')
+        result = agent.chat(message=message, chat_history=chat_history, language=locale)
         
         return jsonify({
             "success": True,

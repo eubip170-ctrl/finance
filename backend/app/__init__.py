@@ -9,7 +9,7 @@ import warnings
 # 需要在所有其他导入之前设置
 warnings.filterwarnings("ignore", message=".*resource_tracker.*")
 
-from flask import Flask, request
+from flask import Flask, request, g
 from flask_cors import CORS
 
 from .config import Config
@@ -48,6 +48,13 @@ def create_app(config_class=Config):
     if should_log_startup:
         logger.info("已注册模拟进程清理函数")
     
+    # Locale middleware — normalize Accept-Language header to a 2-letter code
+    @app.before_request
+    def set_locale():
+        # Normalize 'hu-HU,hu;q=0.9,en;q=0.8' -> 'hu'
+        accept_lang = request.headers.get("Accept-Language", "en")
+        g.locale = accept_lang.split(",")[0].split("-")[0].lower()
+
     # 请求日志中间件
     @app.before_request
     def log_request():
@@ -63,10 +70,11 @@ def create_app(config_class=Config):
         return response
     
     # 注册蓝图
-    from .api import graph_bp, simulation_bp, report_bp
+    from .api import graph_bp, simulation_bp, report_bp, locale_bp
     app.register_blueprint(graph_bp, url_prefix='/api/graph')
     app.register_blueprint(simulation_bp, url_prefix='/api/simulation')
     app.register_blueprint(report_bp, url_prefix='/api/report')
+    app.register_blueprint(locale_bp, url_prefix='/api/locale')
     
     # 健康检查
     @app.route('/health')

@@ -901,18 +901,21 @@ class ReportAgent:
         self.graph_id = graph_id
         self.simulation_id = simulation_id
         self.simulation_requirement = simulation_requirement
-        
+
         self.llm = llm_client or LLMClient()
         self.zep_tools = zep_tools or ZepToolsService()
-        
+
+        # Active language for LLM calls (set per-call by generate_report / chat)
+        self.language: str = "en"
+
         # 工具定义
         self.tools = self._define_tools()
-        
+
         # 日志记录器（在 generate_report 中初始化）
         self.report_logger: Optional[ReportLogger] = None
         # 控制台日志记录器（在 generate_report 中初始化）
         self.console_logger: Optional[ReportConsoleLogger] = None
-        
+
         logger.info(f"ReportAgent 初始化完成: graph_id={graph_id}, simulation_id={simulation_id}")
     
     def _define_tools(self) -> Dict[str, Dict[str, Any]]:
@@ -952,6 +955,14 @@ class ReportAgent:
             }
         }
     
+    def _with_language(self, messages: list) -> list:
+        """Prepend language instruction to messages when not English."""
+        if self.language and self.language != "en":
+            return [
+                {"role": "system", "content": f"Generate all your output in the language with BCP 47 tag '{self.language}'. Do not use any other language."}
+            ] + list(messages)
+        return list(messages)
+
     def _execute_tool(self, tool_name: str, parameters: Dict[str, Any], report_context: str = "") -> str:
         """
         执行工具调用
@@ -1174,10 +1185,10 @@ class ReportAgent:
 
         try:
             response = self.llm.chat_json(
-                messages=[
+                messages=self._with_language([
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
-                ],
+                ]),
                 temperature=0.3
             )
             
@@ -1275,11 +1286,11 @@ class ReportAgent:
             section_title=section.title,
         )
 
-        messages = [
+        messages = self._with_language([
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt}
-        ]
-        
+        ])
+
         # ReACT循环
         tool_calls_count = 0
         max_iterations = 5  # 最大迭代轮数
@@ -1530,9 +1541,10 @@ class ReportAgent:
         return final_answer
     
     def generate_report(
-        self, 
+        self,
         progress_callback: Optional[Callable[[str, int, str], None]] = None,
-        report_id: Optional[str] = None
+        report_id: Optional[str] = None,
+        language: str = "en"
     ) -> Report:
         """
         生成完整报告（分章节实时输出）
@@ -1556,7 +1568,10 @@ class ReportAgent:
             Report: 完整报告
         """
         import uuid
-        
+
+        # Store language for use by _with_language() in LLM calls
+        self.language = language
+
         # 如果没有传入 report_id，则自动生成
         if not report_id:
             report_id = f"report_{uuid.uuid4().hex[:12]}"
@@ -1764,9 +1779,10 @@ class ReportAgent:
             return report
     
     def chat(
-        self, 
+        self,
         message: str,
-        chat_history: List[Dict[str, str]] = None
+        chat_history: List[Dict[str, str]] = None,
+        language: str = "en"
     ) -> Dict[str, Any]:
         """
         与Report Agent对话
@@ -1785,7 +1801,10 @@ class ReportAgent:
             }
         """
         logger.info(f"Report Agent对话: {message[:50]}...")
-        
+
+        # Store language for _with_language() calls
+        self.language = language
+
         chat_history = chat_history or []
         
         # 获取已生成的报告内容
@@ -1807,15 +1826,15 @@ class ReportAgent:
         )
 
         # 构建消息
-        messages = [{"role": "system", "content": system_prompt}]
-        
+        messages = self._with_language([{"role": "system", "content": system_prompt}])
+
         # 添加历史对话
         for h in chat_history[-10:]:  # 限制历史长度
             messages.append(h)
-        
+
         # 添加用户消息
         messages.append({
-            "role": "user", 
+            "role": "user",
             "content": message
         })
         

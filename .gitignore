@@ -1,3 +1,7 @@
+# i18n generated locale cache (auto-generated, not en.json base)
+backend/app/i18n/[!e]*.json
+backend/app/i18n/e[!n]*.json
+
 # OS
 .DS_Store
 Thumbs.db

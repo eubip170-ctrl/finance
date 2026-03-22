@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { detectLanguage } from '../i18n/index.js'
 
 // 创建axios实例
 const service = axios.create({
@@ -12,6 +13,7 @@ const service = axios.create({
 // 请求拦截器
 service.interceptors.request.use(
   config => {
+    config.headers['Accept-Language'] = detectLanguage()
     return config
   },
   error => {

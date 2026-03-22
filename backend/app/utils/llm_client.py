@@ -37,30 +37,39 @@ class LLMClient:
         messages: List[Dict[str, str]],
         temperature: float = 0.7,
         max_tokens: int = 4096,
-        response_format: Optional[Dict] = None
+        response_format: Optional[Dict] = None,
+        language: Optional[str] = None
     ) -> str:
         """
         发送聊天请求
-        
+
         Args:
             messages: 消息列表
             temperature: 温度参数
             max_tokens: 最大token数
             response_format: 响应格式（如JSON模式）
-            
+            language: 输出语言（BCP 47语言标签，如'zh-CN', 'fr'等）
+
         Returns:
             模型响应文本
         """
+        if language and language != "en":
+            lang_instruction = {
+                "role": "system",
+                "content": f"Generate all your output in the language with BCP 47 tag '{language}'. Do not use any other language."
+            }
+            messages = [lang_instruction] + list(messages)
+
         kwargs = {
             "model": self.model,
             "messages": messages,
             "temperature": temperature,
             "max_tokens": max_tokens,
         }
-        
+
         if response_format:
             kwargs["response_format"] = response_format
-        
+
         response = self.client.chat.completions.create(**kwargs)
         content = response.choices[0].message.content
         # 部分模型（如MiniMax M2.5）会在content中包含<think>思考内容，需要移除
@@ -71,16 +80,18 @@ class LLMClient:
         self,
         messages: List[Dict[str, str]],
         temperature: float = 0.3,
-        max_tokens: int = 4096
+        max_tokens: int = 4096,
+        language: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         发送聊天请求并返回JSON
-        
+
         Args:
             messages: 消息列表
             temperature: 温度参数
             max_tokens: 最大token数
-            
+            language: 输出语言（BCP 47语言标签，如'zh-CN', 'fr'等）
+
         Returns:
             解析后的JSON对象
         """
@@ -88,7 +99,8 @@ class LLMClient:
             messages=messages,
             temperature=temperature,
             max_tokens=max_tokens,
-            response_format={"type": "json_object"}
+            response_format={"type": "json_object"},
+            language=language
         )
         # 清理markdown代码块标记
         cleaned_response = response.strip()
