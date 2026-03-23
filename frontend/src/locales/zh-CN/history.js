@@ -1,0 +1,20 @@
+export default {
+  sectionTitle: '推演记录',
+  titleGraph: '图谱构建',
+  titleEnv: '环境搭建',
+  titleReport: '分析报告',
+  moreFiles: '+{n} 个文件',
+  noFiles: '暂无文件',
+  loading: '加载中…',
+  simRequirement: '模拟需求',
+  linkedFiles: '关联文件',
+  noLinkedFiles: '暂无关联文件',
+  playback: '推演回放',
+  step1: '图谱构建',
+  step2: '环境搭建',
+  step4: '分析报告',
+  playbackHint: 'Step3「开始模拟」与 Step5「深度互动」需在运行中启动，不支持历史回放',
+  modalStep1: 'Step1',
+  modalStep2: 'Step2',
+  modalStep4: 'Step4'
+}

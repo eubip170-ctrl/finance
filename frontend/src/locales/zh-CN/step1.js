@@ -1,0 +1,26 @@
+export default {
+  step01Title: '本体生成',
+  step02Title: 'GraphRAG 构建',
+  step03Title: '构建完成',
+  badgeDone: '已完成',
+  badgeGen: '生成中',
+  badgeWait: '等待',
+  badgeInProgress: '进行中',
+  descOntology: 'LLM 分析文档内容与模拟需求，提取出现实种子，自动生成合适的本体结构',
+  descBuild:
+    '基于生成的本体，将文档自动分块后调用 Zep 构建知识图谱，提取实体和关系，并形成时序记忆与社区摘要',
+  descComplete: '图谱构建已完成，请进入下一步进行模拟环境搭建',
+  analyzing: '正在分析文档…',
+  enterEnv: '进入环境搭建',
+  creating: '创建中…',
+  statNodes: '实体节点',
+  statEdges: '关系边',
+  statSchema: 'SCHEMA 类型',
+  genEntityTypes: 'GENERATED ENTITY TYPES',
+  genRelationTypes: 'GENERATED RELATION TYPES',
+  createSimFailed: '创建模拟失败',
+  createSimError: '创建模拟异常',
+  unknownError: '未知错误',
+  createSimFailedMsg: '创建模拟失败: {msg}',
+  createSimErrMsg: '创建模拟异常: {msg}'
+}

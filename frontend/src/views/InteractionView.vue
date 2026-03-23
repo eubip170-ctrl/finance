@@ -15,15 +15,15 @@
             :class="{ active: viewMode === mode }"
             @click="viewMode = mode"
           >
-            {{ { graph: '图谱', split: '双栏', workbench: '工作台' }[mode] }}
+            {{ $t(`common.viewMode.${mode}`) }}
           </button>
         </div>
       </div>
 
       <div class="header-right">
         <div class="workflow-step">
-          <span class="step-num">Step 5/5</span>
-          <span class="step-name">深度互动</span>
+          <span class="step-num">{{ $t('common.stepWithTotal', { current: 5, total: 5 }) }}</span>
+          <span class="step-name">{{ $t('common.workflow.interaction') }}</span>
         </div>
         <div class="step-divider"></div>
         <span class="status-indicator" :class="statusClass">
@@ -63,6 +63,7 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import GraphPanel from '../components/GraphPanel.vue'
 import Step5Interaction from '../components/Step5Interaction.vue'
@@ -72,6 +73,7 @@ import { getReport } from '../api/report'
 
 const route = useRoute()
 const router = useRouter()
+const { t } = useI18n()
 
 // Props
 const props = defineProps({
@@ -109,10 +111,10 @@ const statusClass = computed(() => {
 })
 
 const statusText = computed(() => {
-  if (currentStatus.value === 'error') return 'Error'
-  if (currentStatus.value === 'completed') return 'Completed'
-  if (currentStatus.value === 'processing') return 'Processing'
-  return 'Ready'
+  if (currentStatus.value === 'error') return t('common.status.error')
+  if (currentStatus.value === 'completed') return t('common.status.ready')
+  if (currentStatus.value === 'processing') return t('common.status.processing')
+  return t('common.status.ready')
 })
 
 // --- Helpers ---
@@ -140,7 +142,7 @@ const toggleMaximize = (target) => {
 // --- Data Logic ---
 const loadReportData = async () => {
   try {
-    addLog(`加载报告数据: ${currentReportId.value}`)
+    addLog(t('views.interaction.loadReport', { id: currentReportId.value }))
     
     // 获取 report 信息以获取 simulation_id
     const reportRes = await getReport(currentReportId.value)
@@ -159,7 +161,7 @@ const loadReportData = async () => {
             const projRes = await getProject(simData.project_id)
             if (projRes.success && projRes.data) {
               projectData.value = projRes.data
-              addLog(`项目加载成功: ${projRes.data.project_id}`)
+              addLog(t('views.interaction.projectOk', { id: projRes.data.project_id }))
               
               // 获取 graph 数据
               if (projRes.data.graph_id) {
@@ -170,10 +172,10 @@ const loadReportData = async () => {
         }
       }
     } else {
-      addLog(`获取报告信息失败: ${reportRes.error || '未知错误'}`)
+      addLog(t('views.interaction.reportFail', { error: reportRes.error || t('step1.unknownError') }))
     }
   } catch (err) {
-    addLog(`加载异常: ${err.message}`)
+    addLog(t('views.interaction.loadErr', { msg: err.message }))
   }
 }
 
@@ -184,10 +186,10 @@ const loadGraph = async (graphId) => {
     const res = await getGraphData(graphId)
     if (res.success) {
       graphData.value = res.data
-      addLog('图谱数据加载成功')
+      addLog(t('views.interaction.graphOk'))
     }
   } catch (err) {
-    addLog(`图谱加载失败: ${err.message}`)
+    addLog(t('views.interaction.graphFail', { msg: err.message }))
   } finally {
     graphLoading.value = false
   }
@@ -208,7 +210,7 @@ watch(() => route.params.reportId, (newId) => {
 }, { immediate: true })
 
 onMounted(() => {
-  addLog('InteractionView 初始化')
+  addLog(t('views.interaction.init'))
   loadReportData()
 })
 </script>
