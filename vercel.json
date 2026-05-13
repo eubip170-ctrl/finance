@@ -1,0 +1,11 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "buildCommand": "next build",
+  "installCommand": "npm install",
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD ./ ':!legacy/**'",
+  "functions": {
+    "app/api/inngest/route.ts": { "maxDuration": 300 },
+    "app/api/brain/ingest/route.ts": { "maxDuration": 60 }
+  }
+}

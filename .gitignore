@@ -30,6 +30,17 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# Next.js
+.next/
+out/
+next-env.d.ts.bak
+.vercel/
+.turbo/
+
+# Supabase
+supabase/.temp/
+supabase/.branches/
+
 # IDE
 .vscode/
 .idea/
