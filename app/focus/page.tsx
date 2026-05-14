@@ -24,8 +24,11 @@ type FocusEvent = {
 /**
  * Curated set of live macro / geopolitical themes inspired by the medge Focus
  * engine. The "score" is calculated from realised performance of the proxy
- * tickers over the last 20 trading days, projected to 0-100. The regime is
- * derived from VIX-equivalent realised volatility on the same window.
+ * tickers (MarketStack v2 EOD) over the last 20 trading days, projected to
+ * 0-100. The regime is derived from realised dispersion on the same window.
+ *
+ * MarketStack v2 only carries US-listed instruments, so non-US indices,
+ * commodities and FX are proxied via their US ETF equivalents.
  */
 const EVENTS: FocusEvent[] = [
   {
@@ -36,9 +39,9 @@ const EVENTS: FocusEvent[] = [
     description:
       "Markets pricing the trajectory of US policy rates: short-end yields, gold and rate-sensitive equities react together.",
     direction: "abs",
-    proxies: ["TLT", "GC=F", "^IRX"],
+    proxies: ["TLT", "GLD", "BIL"],
     countries: ["United States"],
-    indices: ["^GSPC", "^IXIC"],
+    indices: ["SPY", "QQQ"],
     sectors: ["Real Estate (XLRE)", "Utilities (XLU)", "Financials (XLF)"],
   },
   {
@@ -49,9 +52,9 @@ const EVENTS: FocusEvent[] = [
     description:
       "Dollar Index dynamics squeezing EM, commodities and exporters. DXY breakouts pressure global liquidity.",
     direction: "abs",
-    proxies: ["DX-Y.NYB", "EURUSD=X", "USDJPY=X"],
+    proxies: ["UUP", "FXE", "FXY"],
     countries: ["United States", "Eurozone", "Japan"],
-    indices: ["^GSPC", "^STOXX50E", "^N225"],
+    indices: ["SPY", "FEZ", "EWJ"],
     sectors: ["Materials (XLB)", "Energy (XLE)"],
   },
   {
@@ -62,9 +65,9 @@ const EVENTS: FocusEvent[] = [
     description:
       "Persistent core CPI vs. headline disinflation. Watching commodity baskets and inflation-linked bonds.",
     direction: "abs",
-    proxies: ["TIP", "DBC", "CL=F"],
+    proxies: ["TIP", "DBC", "USO"],
     countries: ["United States", "Eurozone", "United Kingdom"],
-    indices: ["^GSPC", "^FTSE"],
+    indices: ["SPY", "EWU"],
     sectors: ["Energy (XLE)", "Cons. Staples (XLP)"],
   },
   {
@@ -77,7 +80,7 @@ const EVENTS: FocusEvent[] = [
     direction: "risk-off",
     proxies: ["HYG", "XLY", "XLP"],
     countries: ["United States"],
-    indices: ["^GSPC", "^RUT"],
+    indices: ["SPY", "IWM"],
     sectors: ["Cons. Discretionary (XLY)", "Industrials (XLI)"],
   },
   {
@@ -88,9 +91,9 @@ const EVENTS: FocusEvent[] = [
     description:
       "Bund yields, German auto and industrial exposure, EUR-denominated indices.",
     direction: "risk-off",
-    proxies: ["^STOXX50E", "EWG", "EURUSD=X"],
+    proxies: ["FEZ", "EWG", "FXE"],
     countries: ["Germany", "France", "Italy"],
-    indices: ["^STOXX50E", "^GDAXI", "^FCHI"],
+    indices: ["FEZ", "EWG", "EWQ"],
     sectors: ["Industrials (XLI)", "Automakers"],
   },
   {
@@ -101,9 +104,9 @@ const EVENTS: FocusEvent[] = [
     description:
       "MSCI China, copper and Hang Seng as proxies for China cyclical demand and policy support.",
     direction: "risk-off",
-    proxies: ["FXI", "HG=F", "^HSI"],
+    proxies: ["FXI", "CPER", "EWH"],
     countries: ["China", "Hong Kong"],
-    indices: ["^HSI", "000001.SS"],
+    indices: ["MCHI", "FXI"],
     sectors: ["Materials (XLB)", "Industrials (XLI)"],
   },
   {
@@ -114,10 +117,10 @@ const EVENTS: FocusEvent[] = [
     description:
       "Oil shock and safe-haven bid: WTI/Brent, gold, defensive equity baskets.",
     direction: "abs",
-    proxies: ["CL=F", "BZ=F", "GC=F"],
+    proxies: ["USO", "BNO", "GLD"],
     countries: ["Israel", "Iran", "Saudi Arabia"],
-    indices: ["^GSPC", "^TASI"],
-    sectors: ["Energy (XLE)", "Defense"],
+    indices: ["SPY", "KSA"],
+    sectors: ["Energy (XLE)", "Defense (ITA)"],
   },
   {
     id: "sovereign-debt",
@@ -129,7 +132,7 @@ const EVENTS: FocusEvent[] = [
     direction: "risk-off",
     proxies: ["TLT", "IEF", "BNDX"],
     countries: ["United States", "Italy", "Japan"],
-    indices: ["^GSPC", "^STOXX50E"],
+    indices: ["SPY", "FEZ"],
     sectors: ["Financials (XLF)"],
   },
   {
@@ -142,7 +145,7 @@ const EVENTS: FocusEvent[] = [
     direction: "abs",
     proxies: ["SMH", "QQQ", "XLU"],
     countries: ["United States", "Taiwan", "South Korea"],
-    indices: ["^IXIC", "^NDX"],
+    indices: ["QQQ", "SMH"],
     sectors: ["Technology (XLK)", "Utilities (XLU)"],
   },
   {
@@ -153,9 +156,9 @@ const EVENTS: FocusEvent[] = [
     description:
       "European natural gas, US WTI and energy equity leadership rotation.",
     direction: "abs",
-    proxies: ["XLE", "CL=F", "UNG"],
+    proxies: ["XLE", "USO", "UNG"],
     countries: ["United States", "Eurozone", "Russia"],
-    indices: ["^GSPC", "^STOXX50E"],
+    indices: ["SPY", "FEZ"],
     sectors: ["Energy (XLE)", "Utilities (XLU)"],
   },
   {
@@ -168,7 +171,7 @@ const EVENTS: FocusEvent[] = [
     direction: "risk-off",
     proxies: ["EEM", "EMB", "FXI"],
     countries: ["China", "Brazil", "Turkey", "South Africa"],
-    indices: ["EEM", "^BVSP"],
+    indices: ["EEM", "EWZ"],
     sectors: ["Financials (XLF)", "Materials (XLB)"],
   },
   {
@@ -179,9 +182,9 @@ const EVENTS: FocusEvent[] = [
     description:
       "BTC and crypto-adjacent equities as a barometer for global liquidity and risk appetite.",
     direction: "abs",
-    proxies: ["BTC-USD", "ETH-USD", "COIN"],
+    proxies: ["BITO", "COIN", "MARA"],
     countries: ["United States"],
-    indices: ["^IXIC"],
+    indices: ["QQQ"],
     sectors: ["Technology (XLK)"],
   },
 ];
@@ -238,7 +241,7 @@ const REGIME_TONE: Record<Scored["regime"], string> = {
 
 export default async function FocusPage() {
   const allProxies = Array.from(new Set(EVENTS.flatMap((e) => e.proxies)));
-  const series = await getManySeries(allProxies, "3mo", "1d");
+  const series = await getManySeries(allProxies, 90);
   const seriesMap = new Map(series.map((s) => [s.symbol, s]));
 
   const scored = EVENTS.map((e) => scoreEvent(e, seriesMap)).sort(

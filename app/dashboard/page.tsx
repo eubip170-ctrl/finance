@@ -6,22 +6,23 @@ export const dynamic = "force-dynamic";
 export const revalidate = 600;
 
 /**
- * Cross-asset pulse — one representative ticker per major asset bucket.
- * Equities (US, EU, JP, EM), FX (DXY, EUR), rates (TLT, IEF), commodities (GC, CL),
- * crypto (BTC), credit (HYG).
+ * Cross-asset pulse — one representative ETF per major asset bucket.
+ * MarketStack v2 only exposes US-listed equities/ETFs, so we proxy indices,
+ * commodities and FX through their liquid US ETF equivalents (same convention
+ * used by medge).
  */
 const PULSE: Array<{ symbol: string; label: string; group: string }> = [
-  { symbol: "^GSPC", label: "S&P 500", group: "Equities" },
-  { symbol: "^STOXX50E", label: "Euro Stoxx 50", group: "Equities" },
-  { symbol: "^N225", label: "Nikkei 225", group: "Equities" },
+  { symbol: "SPY", label: "S&P 500", group: "Equities" },
+  { symbol: "QQQ", label: "Nasdaq 100", group: "Equities" },
+  { symbol: "FEZ", label: "Euro Stoxx 50", group: "Equities" },
+  { symbol: "EWJ", label: "Japan", group: "Equities" },
   { symbol: "EEM", label: "EM Equities", group: "Equities" },
-  { symbol: "DX-Y.NYB", label: "Dollar Index", group: "FX" },
-  { symbol: "EURUSD=X", label: "EUR/USD", group: "FX" },
+  { symbol: "UUP", label: "Dollar Index", group: "FX" },
+  { symbol: "FXE", label: "EUR/USD", group: "FX" },
   { symbol: "TLT", label: "US 20Y Treasury", group: "Rates" },
   { symbol: "IEF", label: "US 7-10Y Treasury", group: "Rates" },
-  { symbol: "GC=F", label: "Gold", group: "Commodities" },
-  { symbol: "CL=F", label: "WTI Crude", group: "Commodities" },
-  { symbol: "BTC-USD", label: "Bitcoin", group: "Crypto" },
+  { symbol: "GLD", label: "Gold", group: "Commodities" },
+  { symbol: "USO", label: "WTI Crude", group: "Commodities" },
   { symbol: "HYG", label: "US High Yield", group: "Credit" },
 ];
 
@@ -79,8 +80,8 @@ export default async function DashboardPage() {
   const pulseSyms = PULSE.map((p) => p.symbol);
   const sectorSyms = SECTORS.map((s) => s.symbol);
   const [pulseData, sectorData] = await Promise.all([
-    getManySeries(pulseSyms, "1y", "1d"),
-    getManySeries(sectorSyms, "1y", "1d"),
+    getManySeries(pulseSyms, 400),
+    getManySeries(sectorSyms, 400),
   ]);
   const pulseMap = new Map(pulseData.map((s) => [s.symbol, s]));
   const sectorMap = new Map(sectorData.map((s) => [s.symbol, s]));
@@ -113,7 +114,8 @@ export default async function DashboardPage() {
 
       {stale && (
         <div className="mt-6 rounded-md border border-amber-900 bg-amber-950/40 p-3 text-sm text-amber-300">
-          Yahoo Finance temporarily rate-limited this region. Refresh in ~1 minute.
+          No data from MarketStack. Check that <code>MARKETSTACK_API_KEY</code> is
+          configured and the quota has not been exhausted.
         </div>
       )}
 

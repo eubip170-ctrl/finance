@@ -1,35 +1,41 @@
 import Link from "next/link";
-import { getSeries, sma, ema, type ChartRange } from "@/lib/markets/series";
+import { getSeries, sma, ema } from "@/lib/markets/series";
 import { PriceChart } from "@/components/charts/PriceChart";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 600;
 
 const PRESETS: Array<{ symbol: string; label: string }> = [
-  { symbol: "^GSPC", label: "S&P 500" },
-  { symbol: "^IXIC", label: "Nasdaq" },
-  { symbol: "^STOXX50E", label: "Euro Stoxx 50" },
-  { symbol: "^N225", label: "Nikkei 225" },
-  { symbol: "BTC-USD", label: "Bitcoin" },
-  { symbol: "GC=F", label: "Gold" },
-  { symbol: "CL=F", label: "Crude WTI" },
-  { symbol: "DX-Y.NYB", label: "Dollar Index" },
+  { symbol: "SPY", label: "S&P 500" },
+  { symbol: "QQQ", label: "Nasdaq 100" },
+  { symbol: "FEZ", label: "Euro Stoxx 50" },
+  { symbol: "EWJ", label: "Japan" },
+  { symbol: "GLD", label: "Gold" },
+  { symbol: "USO", label: "Crude WTI" },
+  { symbol: "UUP", label: "Dollar Index" },
   { symbol: "TLT", label: "US 20Y Tsy" },
   { symbol: "SMH", label: "Semis ETF" },
+  { symbol: "AAPL", label: "Apple" },
 ];
 
-const RANGES: ChartRange[] = ["1mo", "3mo", "6mo", "1y", "2y", "5y"];
+const RANGES: Array<{ key: string; days: number }> = [
+  { key: "1mo", days: 35 },
+  { key: "3mo", days: 100 },
+  { key: "6mo", days: 200 },
+  { key: "1y", days: 380 },
+  { key: "2y", days: 760 },
+  { key: "5y", days: 1850 },
+];
 
 type SP = { searchParams?: Promise<{ symbol?: string; range?: string }> };
 
 export default async function ChartsPage(props: SP) {
   const sp = (await props.searchParams) ?? {};
-  const symbol = (sp.symbol ?? "^GSPC").toUpperCase();
-  const range: ChartRange = RANGES.includes(sp.range as ChartRange)
-    ? (sp.range as ChartRange)
-    : "1y";
+  const symbol = (sp.symbol ?? "SPY").toUpperCase();
+  const rangeKey = RANGES.find((r) => r.key === sp.range)?.key ?? "1y";
+  const range = RANGES.find((r) => r.key === rangeKey) ?? RANGES[3];
 
-  const series = await getSeries(symbol, range, "1d");
+  const series = await getSeries(symbol, range.days);
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-12">
@@ -58,7 +64,7 @@ export default async function ChartsPage(props: SP) {
           return (
             <Link
               key={p.symbol}
-              href={`/charts?symbol=${encodeURIComponent(p.symbol)}&range=${range}`}
+              href={`/charts?symbol=${encodeURIComponent(p.symbol)}&range=${range.key}`}
               className={`rounded border px-2 py-1 text-xs ${
                 active
                   ? "border-accent bg-accent/10 text-accent"
@@ -77,18 +83,18 @@ export default async function ChartsPage(props: SP) {
           Range
         </span>
         {RANGES.map((r) => {
-          const active = r === range;
+          const active = r.key === range.key;
           return (
             <Link
-              key={r}
-              href={`/charts?symbol=${encodeURIComponent(symbol)}&range=${r}`}
+              key={r.key}
+              href={`/charts?symbol=${encodeURIComponent(symbol)}&range=${r.key}`}
               className={`rounded border px-2 py-1 text-xs ${
                 active
                   ? "border-accent bg-accent/10 text-accent"
                   : "border-border bg-panel text-zinc-400 hover:text-zinc-100"
               }`}
             >
-              {r}
+              {r.key}
             </Link>
           );
         })}
@@ -96,7 +102,8 @@ export default async function ChartsPage(props: SP) {
 
       {!series ? (
         <div className="mt-8 rounded-md border border-amber-900 bg-amber-950/40 p-3 text-sm text-amber-300">
-          No data for <code>{symbol}</code>. Yahoo may be rate-limited or the symbol is invalid.
+          No data for <code>{symbol}</code>. Check that <code>MARKETSTACK_API_KEY</code>{" "}
+          is set and the symbol is supported (US-listed equities and ETFs).
         </div>
       ) : (
         <ChartBody symbol={symbol} series={series} />

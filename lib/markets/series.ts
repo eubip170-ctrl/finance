@@ -1,28 +1,26 @@
 /**
- * Yahoo Finance v8 historical series fetcher.
+ * Price series adapter.
  *
- * The chart endpoint returns OHLC arrays plus closing prices for the requested
- * range/interval. We use this for sparklines, multi-period performance, and
- * the technical analysis section.
+ * The 3 new dashboard / focus / charts sections load OHLCV from MarketStack v2
+ * (`./marketstack.ts`), then this module shapes them into a uniform `Series`
+ * type and computes multi-period returns / SMA / EMA used by the UI.
  *
- * Like `yahoo.ts` we fan out per-symbol and tolerate partial failures.
+ * MarketStack v2 only exposes EOD, so we always fetch a daily window large
+ * enough to cover the longest required lookback (~2y for 1Y returns plus
+ * buffer for SMA50/etc).
  */
 
-const BASE = "https://query1.finance.yahoo.com/v8/finance/chart";
-const HEADERS = {
-  "User-Agent":
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36",
-  Accept: "application/json,text/plain,*/*",
-  "Accept-Language": "en-US,en;q=0.9",
-  Referer: "https://finance.yahoo.com/",
-};
-
-export type ChartRange = "5d" | "1mo" | "3mo" | "6mo" | "1y" | "2y" | "5y" | "ytd";
-export type ChartInterval = "1d" | "1wk" | "1mo" | "60m";
+import {
+  loadMultipleOhlcv,
+  loadOhlcv,
+  startDateDaysAgo,
+  todayISO,
+  type OhlcvRow,
+} from "./marketstack";
 
 export type Series = {
   symbol: string;
-  timestamps: number[];
+  timestamps: number[]; // unix seconds (UTC midnight)
   closes: number[];
   meta: {
     regularMarketPrice?: number;
@@ -32,57 +30,34 @@ export type Series = {
   };
 };
 
+const DEFAULT_LOOKBACK_DAYS = 800; // ~2y of trading days + buffer
+
+function rowsToSeries(symbol: string, rows: OhlcvRow[]): Series | null {
+  if (rows.length === 0) return null;
+  const timestamps = rows.map((r) => Math.floor(new Date(r.date + "T00:00:00Z").getTime() / 1000));
+  const closes = rows.map((r) => r.close);
+  const last = closes[closes.length - 1];
+  const prev = closes[closes.length - 2] ?? last;
+  return {
+    symbol,
+    timestamps,
+    closes,
+    meta: {
+      regularMarketPrice: last,
+      previousClose: prev,
+      currency: "USD",
+      shortName: undefined,
+    },
+  };
+}
+
 export async function getSeries(
   symbol: string,
-  range: ChartRange = "1y",
-  interval: ChartInterval = "1d",
+  lookbackDays: number = DEFAULT_LOOKBACK_DAYS,
 ): Promise<Series | null> {
-  const url = `${BASE}/${encodeURIComponent(symbol)}?interval=${interval}&range=${range}`;
   try {
-    const res = await fetch(url, { headers: HEADERS, next: { revalidate: 300 } });
-    if (!res.ok) return null;
-    const json = (await res.json()) as {
-      chart?: {
-        result?: Array<{
-          timestamp?: number[];
-          indicators?: { quote?: Array<{ close?: Array<number | null> }> };
-          meta?: {
-            symbol?: string;
-            regularMarketPrice?: number;
-            previousClose?: number;
-            chartPreviousClose?: number;
-            currency?: string;
-            shortName?: string;
-            longName?: string;
-          };
-        }>;
-      };
-    };
-    const r = json.chart?.result?.[0];
-    if (!r?.timestamp || !r.indicators?.quote?.[0]?.close) return null;
-    const ts = r.timestamp;
-    const rawCloses = r.indicators.quote[0].close ?? [];
-    const timestamps: number[] = [];
-    const closes: number[] = [];
-    for (let i = 0; i < ts.length; i++) {
-      const c = rawCloses[i];
-      if (typeof c === "number" && Number.isFinite(c)) {
-        timestamps.push(ts[i]);
-        closes.push(c);
-      }
-    }
-    if (closes.length === 0) return null;
-    return {
-      symbol: r.meta?.symbol ?? symbol,
-      timestamps,
-      closes,
-      meta: {
-        regularMarketPrice: r.meta?.regularMarketPrice,
-        previousClose: r.meta?.previousClose ?? r.meta?.chartPreviousClose,
-        currency: r.meta?.currency,
-        shortName: r.meta?.shortName ?? r.meta?.longName,
-      },
-    };
+    const rows = await loadOhlcv(symbol, startDateDaysAgo(lookbackDays), todayISO());
+    return rowsToSeries(symbol, rows);
   } catch {
     return null;
   }
@@ -90,14 +65,27 @@ export async function getSeries(
 
 export async function getManySeries(
   symbols: string[],
-  range: ChartRange = "1y",
-  interval: ChartInterval = "1d",
+  lookbackDays: number = DEFAULT_LOOKBACK_DAYS,
 ): Promise<Series[]> {
   if (symbols.length === 0) return [];
-  const r = await Promise.allSettled(symbols.map((s) => getSeries(s, range, interval)));
-  return r
-    .map((x) => (x.status === "fulfilled" ? x.value : null))
-    .filter((s): s is Series => s !== null);
+  try {
+    const { series } = await loadMultipleOhlcv(
+      symbols,
+      startDateDaysAgo(lookbackDays),
+      todayISO(),
+      8,
+    );
+    const out: Series[] = [];
+    for (const s of symbols) {
+      const rows = series.get(s);
+      if (!rows) continue;
+      const r = rowsToSeries(s, rows);
+      if (r) out.push(r);
+    }
+    return out;
+  } catch {
+    return [];
+  }
 }
 
 /**
