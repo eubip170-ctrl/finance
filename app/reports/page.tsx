@@ -12,7 +12,7 @@ export default async function ReportsListPage() {
     .limit(100);
 
   return (
-    <main className="mx-auto max-w-3xl px-6 py-12">
+    <main className="px-6 py-8">
       <Link href="/" className="text-sm text-zinc-500 hover:text-zinc-300">
         ← Home
       </Link>
@@ -20,7 +20,7 @@ export default async function ReportsListPage() {
       {!data || data.length === 0 ? (
         <p className="mt-6 text-zinc-500">No reports yet.</p>
       ) : (
-        <ul className="mt-6 space-y-2">
+        <ul className="mt-6 grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
           {data.map((r) => (
             <li key={r.id}>
               <Link

@@ -17,7 +17,7 @@ export default async function MarketsPage() {
   const feedList = feed.status === "fulfilled" ? feed.value.slice(0, 20) : [];
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-12">
+    <main className="px-6 py-8">
       <Link href="/" className="text-sm text-zinc-500 hover:text-zinc-300">
         ← Home
       </Link>
@@ -34,7 +34,7 @@ export default async function MarketsPage() {
             Yahoo Finance temporarily rate-limited this region. Refresh in ~1 minute.
           </p>
         ) : (
-          <ul className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <ul className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8">
             {quoteList.map((q) => (
               <li key={q.symbol} className="rounded border border-border bg-panel p-3">
                 <div className="text-xs uppercase tracking-wide text-zinc-500">
@@ -65,7 +65,7 @@ export default async function MarketsPage() {
         {feed.status === "rejected" ? (
           <p className="text-sm text-red-400">Feed error: {String(feed.reason)}</p>
         ) : (
-          <ul className="space-y-2">
+          <ul className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
             {feedList.map((it) => (
               <li key={it.guid ?? it.link} className="rounded border border-border bg-panel p-3">
                 <a

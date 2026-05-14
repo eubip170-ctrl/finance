@@ -179,8 +179,8 @@ const EVENTS: FocusEvent[] = [
   },
 ];
 
-const LOOKBACK_WINDOW = 21; // trading days used to compute the proxy return
-const HISTORY_DAYS = 90; // points in the aggregate pressure timeline
+const LOOKBACK_WINDOW = 21;
+const HISTORY_DAYS = 90;
 
 type Regime = "calm" | "stress" | "panic";
 
@@ -250,8 +250,6 @@ function pressureRegime(p: number): Regime {
 
 export default async function FocusPage() {
   const allProxies = Array.from(new Set(EVENTS.flatMap((e) => e.proxies)));
-  // We need at least HISTORY_DAYS + LOOKBACK_WINDOW + a small buffer of EOD
-  // rows to compute the full 90d timeline.
   const series = await getManySeries(allProxies, 200);
   const seriesMap = new Map(series.map((s) => [s.symbol, s]));
 
@@ -259,7 +257,6 @@ export default async function FocusPage() {
     const rets = returnsAt(ev, seriesMap, 0);
     const s = scoreFromReturns(ev, rets);
 
-    // Sparkline: per-event score over the last 60 days, light-weight.
     const spark: number[] = [];
     for (let t = 59; t >= 0; t--) {
       const r = returnsAt(ev, seriesMap, t);
@@ -286,7 +283,6 @@ export default async function FocusPage() {
     };
   }).sort((a, b) => b.score - a.score);
 
-  // Aggregate pressure now + timeline.
   const pressureNow = aggregateAt(EVENTS, seriesMap, 0) ?? 0;
   const pressure90d = aggregateAt(EVENTS, seriesMap, HISTORY_DAYS);
   const pressureDelta = pressure90d == null ? 0 : pressureNow - pressure90d;
@@ -305,7 +301,7 @@ export default async function FocusPage() {
   const regime = pressureRegime(pressureNow);
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-12">
+    <main className="px-6 py-8">
       <Link href="/" className="text-sm text-zinc-500 hover:text-zinc-300">
         ← Home
       </Link>
@@ -316,8 +312,7 @@ export default async function FocusPage() {
         live returns.
       </p>
 
-      {/* Aggregate pressure + timeline */}
-      <section className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-3">
+      <section className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-3 xl:grid-cols-4">
         <AggregatePressureCard
           value={pressureNow}
           delta={pressureDelta}
@@ -326,7 +321,6 @@ export default async function FocusPage() {
         <PressureTimelineCard timeline={timeline} have={haveTimeline} />
       </section>
 
-      {/* Regime buckets */}
       <section className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
         <BucketCard label="Calm" tone="calm" count={buckets.calm} total={total} />
         <BucketCard label="Stress" tone="stress" count={buckets.stress} total={total} />
@@ -410,7 +404,7 @@ function PressureTimelineCard({
   have: boolean;
 }) {
   return (
-    <div className="flex h-full flex-col rounded-lg border border-border bg-panel p-4 md:col-span-2">
+    <div className="flex h-full flex-col rounded-lg border border-border bg-panel p-4 md:col-span-2 xl:col-span-3">
       <div className="text-[10px] uppercase tracking-wider text-zinc-500">
         Aggregate pressure · last 90 trading days
       </div>

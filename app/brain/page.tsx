@@ -61,14 +61,14 @@ export default async function BrainPage() {
   const stats = await loadBrainStats();
 
   return (
-    <main className="mx-auto max-w-3xl px-6 py-12">
+    <main className="px-6 py-8">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <Link href="/" className="text-sm text-zinc-500 hover:text-zinc-300">
             ← Home
           </Link>
           <h1 className="mt-2 text-3xl font-semibold">Second Brain</h1>
-          <p className="mt-2 text-sm text-zinc-400">
+          <p className="mt-2 max-w-2xl text-sm text-zinc-400">
             Ingestione automatica da RSS (banche centrali, treasuries, macro news) ogni 30
             minuti. Retrieval semantico sul corpus indicizzato.
           </p>
@@ -87,7 +87,7 @@ export default async function BrainPage() {
         </div>
       )}
 
-      <section className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <section className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
         <Stat label="Documents" value={stats.docCount} />
         <Stat label="Chunks" value={stats.chunkCount} />
         <Stat label="Sources" value={Object.keys(stats.bySource).length} />
@@ -108,9 +108,9 @@ export default async function BrainPage() {
             popolare subito.
           </p>
         ) : (
-          <ul className="mt-3 divide-y divide-border rounded-lg border border-border bg-panel">
+          <ul className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
             {stats.recent.map((d) => (
-              <li key={d.id} className="p-3">
+              <li key={d.id} className="rounded-lg border border-border bg-panel p-3">
                 {d.source_url ? (
                   <a
                     href={d.source_url}

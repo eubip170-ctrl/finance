@@ -5,12 +5,6 @@ import { Sparkline } from "@/components/dashboard/Sparkline";
 export const dynamic = "force-dynamic";
 export const revalidate = 600;
 
-/**
- * Cross-asset pulse — one representative ETF per major asset bucket.
- * MarketStack v2 only exposes US-listed equities/ETFs, so we proxy indices,
- * commodities and FX through their liquid US ETF equivalents (same convention
- * used by medge).
- */
 const PULSE: Array<{ symbol: string; label: string; group: string }> = [
   { symbol: "SPY", label: "S&P 500", group: "Equities" },
   { symbol: "QQQ", label: "Nasdaq 100", group: "Equities" },
@@ -26,7 +20,6 @@ const PULSE: Array<{ symbol: string; label: string; group: string }> = [
   { symbol: "HYG", label: "US High Yield", group: "Credit" },
 ];
 
-/** Sector ETFs — used by the heatmap and the leaderboard. */
 const SECTORS: Array<{ symbol: string; label: string }> = [
   { symbol: "XLK", label: "Technology" },
   { symbol: "XLF", label: "Financials" },
@@ -102,7 +95,7 @@ export default async function DashboardPage() {
   const stale = pulseRows.every((r) => r.last == null);
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-12">
+    <main className="px-6 py-8">
       <Link href="/" className="text-sm text-zinc-500 hover:text-zinc-300">
         ← Home
       </Link>
@@ -119,16 +112,14 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {/* Cross-Asset Pulse */}
       <Section title="Cross-Asset Pulse" badge="PULSE">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8">
           {pulseRows.map((r) => (
             <PulseCard key={r.symbol} row={r} />
           ))}
         </div>
       </Section>
 
-      {/* Top Movers */}
       <Section title="Top Movers · 1D" badge="MOMENTUM">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <MoversList title="Leaders" rows={bestMovers} />
@@ -136,17 +127,14 @@ export default async function DashboardPage() {
         </div>
       </Section>
 
-      {/* Performance Matrix */}
       <Section title="Performance Matrix" badge="MATRIX">
         <PerfMatrix rows={pulseRows} />
       </Section>
 
-      {/* Sector Heatmap */}
       <Section title="Sector Heatmap" badge="SECTORS">
         <SectorHeatmap rows={sectorRows} />
       </Section>
 
-      {/* Sector Returns Table */}
       <Section title="Sector Returns" badge="LEADERBOARD">
         <PerfMatrix rows={sectorRows} />
       </Section>
@@ -282,7 +270,7 @@ function PerfMatrix({ rows }: { rows: Row[] }) {
 
 function SectorHeatmap({ rows }: { rows: Row[] }) {
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
       {rows.map((r) => {
         const v = r.ret["1D"];
         const intensity = v == null ? 0 : Math.min(Math.abs(v) / 3, 1);

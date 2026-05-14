@@ -38,7 +38,7 @@ export default async function ChartsPage(props: SP) {
   const series = await getSeries(symbol, range.days);
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-12">
+    <main className="px-6 py-8">
       <Link href="/" className="text-sm text-zinc-500 hover:text-zinc-300">
         ← Home
       </Link>
@@ -54,7 +54,6 @@ export default async function ChartsPage(props: SP) {
         <code className="text-accent">?symbol=AAPL</code>.
       </p>
 
-      {/* Preset chips */}
       <div className="mt-6 flex flex-wrap items-center gap-2">
         <span className="text-[10px] uppercase tracking-wider text-zinc-600">
           Symbols
@@ -77,7 +76,6 @@ export default async function ChartsPage(props: SP) {
         })}
       </div>
 
-      {/* Range chips */}
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <span className="text-[10px] uppercase tracking-wider text-zinc-600">
           Range
@@ -128,19 +126,15 @@ function ChartBody({
   const prev = closes[closes.length - 2] ?? last;
   const changePct = prev ? ((last - prev) / prev) * 100 : 0;
 
-  // Indicators (last values)
   const sma20Last = lastNonNull(sma20);
   const sma50Last = lastNonNull(sma50);
   const ema20Last = lastNonNull(ema20);
 
-  // Realised vol (annualised, daily log returns)
   const vol = realisedVol(closes);
 
-  // Drawdown series
   const dd = drawdown(closes);
   const maxDD = Math.min(...dd) * 100;
 
-  // 52w high/low approximations (use up to last 252)
   const last252 = closes.slice(-252);
   const hi52 = Math.max(...last252);
   const lo52 = Math.min(...last252);
@@ -183,7 +177,7 @@ function ChartBody({
         />
       </section>
 
-      <section className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+      <section className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-8">
         <Indicator label="Last close" value={last.toFixed(2)} />
         <Indicator
           label="Δ 1D"
@@ -214,7 +208,6 @@ function ChartBody({
         <Indicator label="52W range" value={`${posInRange.toFixed(0)}%`} />
       </section>
 
-      {/* Drawdown chart */}
       <section className="mt-6">
         <div className="mb-2 flex items-center gap-3">
           <h2 className="text-sm font-medium uppercase tracking-wide text-zinc-400">
@@ -229,7 +222,6 @@ function ChartBody({
         </div>
       </section>
 
-      {/* Returns by window */}
       <section className="mt-6">
         <div className="mb-2 flex items-center gap-3">
           <h2 className="text-sm font-medium uppercase tracking-wide text-zinc-400">
@@ -396,8 +388,6 @@ function DrawdownChart({
     </svg>
   );
 }
-
-// Helpers
 
 function lastNonNull(arr: Array<number | null>): number | null {
   for (let i = arr.length - 1; i >= 0; i--) {

@@ -59,7 +59,7 @@ export default async function HomePage() {
   const c = await loadCounters();
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-12">
+    <main className="px-6 py-8">
       <header className="mb-8">
         <h1 className="text-4xl font-semibold tracking-tight text-zinc-100">
           Event / Macro Studier
@@ -77,7 +77,7 @@ export default async function HomePage() {
         </div>
       )}
 
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
         <Stat label="Brain docs" value={c.docs} />
         <Stat label="Chunks" value={c.chunks} />
         <Stat label="Events" value={c.events} />
@@ -127,7 +127,7 @@ export default async function HomePage() {
         </Panel>
       </section>
 
-      <section className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <section className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card
           href="/dashboard"
           title="Market Dashboard"
@@ -152,6 +152,11 @@ export default async function HomePage() {
           href="/brain"
           title="Second Brain"
           description="Corpus auto-popolato da RSS curati (Fed, ECB, BoE, Treasury, Reuters, FT)."
+        />
+        <Card
+          href="/brain/graph"
+          title="Knowledge graph"
+          description="Grafo 3D Obsidian-style del corpus, clusterizzato e labelled via LLM."
         />
         <Card
           href="/markets"

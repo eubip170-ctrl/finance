@@ -33,7 +33,7 @@ export default async function EventsPage() {
   }
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-12">
+    <main className="px-6 py-8">
       <div className="mb-8 flex items-center justify-between">
         <div>
           <Link href="/" className="text-sm text-zinc-500 hover:text-zinc-300">
