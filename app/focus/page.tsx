@@ -317,7 +317,6 @@ function scoreEvent(ev: FocusEvent, seriesMap: Map<string, Series>): Scored {
       proxySpark,
     };
   }
-
   const adjusted = valid.map((v) => (ev.direction === "risk-off" ? -v : Math.abs(v)));
   const meanAdj = adjusted.reduce((a, b) => a + b, 0) / adjusted.length;
   const score = Math.max(0, Math.min(100, Math.round((meanAdj / 12) * 100 + 35)));
@@ -332,6 +331,67 @@ function scoreEvent(ev: FocusEvent, seriesMap: Map<string, Series>): Scored {
     dispersion > 12 ? "panic" : dispersion > 6 ? "stress" : "calm";
 
   return { ...ev, score, momentum, regime, proxyReturns, proxySpark };
+}
+
+/**
+ * Score one event as if "today" were the close at index `idx` of its proxy
+ * series. Used to back-compute the aggregate pressure timeline.
+ */
+function scoreEventAtIndex(
+  ev: FocusEvent,
+  seriesMap: Map<string, Series>,
+  idx: number,
+  lookback = 21,
+): number | null {
+  const values: number[] = [];
+  for (const p of ev.proxies) {
+    const s = seriesMap.get(p);
+    if (!s) continue;
+    const last = s.closes[idx];
+    const prev = s.closes[idx - lookback];
+    if (!last || !prev || !Number.isFinite(prev) || prev === 0) continue;
+    values.push(((last - prev) / prev) * 100);
+  }
+  if (values.length === 0) return null;
+  const adjusted = values.map((v) => (ev.direction === "risk-off" ? -v : Math.abs(v)));
+  const meanAdj = adjusted.reduce((a, b) => a + b, 0) / adjusted.length;
+  return Math.max(0, Math.min(100, Math.round((meanAdj / 12) * 100 + 35)));
+}
+
+/**
+ * Aggregate pressure timeline over the last `days` trading days. For each day
+ * back-compute every event's score using its trailing 21-day proxy window and
+ * return the importance-weighted average. Output is { values, timestamps }.
+ */
+function aggregatePressureTimeline(
+  events: FocusEvent[],
+  seriesMap: Map<string, Series>,
+  days = 90,
+): { values: number[]; timestamps: number[] } {
+  // Find a reference series with enough history (any proxy series will do).
+  const ref = [...seriesMap.values()].find((s) => s.closes.length > days + 21);
+  if (!ref) return { values: [], timestamps: [] };
+
+  const endIdx = ref.closes.length - 1;
+  const startIdx = Math.max(21, endIdx - days + 1);
+  const values: number[] = [];
+  const timestamps: number[] = [];
+
+  for (let i = startIdx; i <= endIdx; i++) {
+    let weightedSum = 0;
+    let weightSum = 0;
+    for (const ev of events) {
+      const s = scoreEventAtIndex(ev, seriesMap, i);
+      if (s == null) continue;
+      weightedSum += s * ev.importance;
+      weightSum += ev.importance;
+    }
+    if (weightSum > 0) {
+      values.push(weightedSum / weightSum);
+      timestamps.push(ref.timestamps[i] ?? 0);
+    }
+  }
+  return { values, timestamps };
 }
 
 function averagedNormalisedPath(seriesList: Series[]): number[] {
@@ -409,6 +469,24 @@ export default async function FocusPage(props: SP) {
     panic: scored.filter((s) => s.regime === "panic").length,
   };
 
+  // Aggregate pressure: importance-weighted average of all event scores.
+  const weighted = scored.reduce(
+    (acc, s) => {
+      acc.sum += s.score * s.importance;
+      acc.w += s.importance;
+      return acc;
+    },
+    { sum: 0, w: 0 },
+  );
+  const aggregate = weighted.w > 0 ? weighted.sum / weighted.w : 0;
+  const aggregateBand: "calm" | "stress" | "panic" =
+    aggregate >= 65 ? "panic" : aggregate >= 50 ? "stress" : "calm";
+
+  const pressureTimeline = aggregatePressureTimeline(EVENTS, seriesMap, 90);
+  const pressurePrev =
+    pressureTimeline.values.length > 0 ? pressureTimeline.values[0] : aggregate;
+  const pressureDelta = aggregate - pressurePrev;
+
   const selected = selectedId ? scored.find((s) => s.id === selectedId) : null;
 
   return (
@@ -431,6 +509,22 @@ export default async function FocusPage(props: SP) {
           exhausted.
         </div>
       )}
+
+      {/* Aggregate pressure — KPI + 90d area chart */}
+      <section className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+        <AggregatePressureKpi
+          value={aggregate}
+          delta={pressureDelta}
+          band={aggregateBand}
+        />
+        <div className="md:col-span-2">
+          <AggregatePressureTimeline
+            values={pressureTimeline.values}
+            timestamps={pressureTimeline.timestamps}
+            band={aggregateBand}
+          />
+        </div>
+      </section>
 
       {/* Regime distribution */}
       <section className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-3">
@@ -780,6 +874,174 @@ function ExposureTable({
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+const PRESSURE_TONE: Record<"calm" | "stress" | "panic", { fg: string; fill: string; label: string }> = {
+  calm: { fg: "#7dd3fc", fill: "rgba(125,211,252,0.18)", label: "Calm" },
+  stress: { fg: "#fcd34d", fill: "rgba(252,211,77,0.18)", label: "Stress" },
+  panic: { fg: "#f87171", fill: "rgba(248,113,113,0.20)", label: "Panic" },
+};
+
+function AggregatePressureKpi({
+  value,
+  delta,
+  band,
+}: {
+  value: number;
+  delta: number;
+  band: "calm" | "stress" | "panic";
+}) {
+  const tone = PRESSURE_TONE[band];
+  const deltaText = `${delta >= 0 ? "+" : ""}${delta.toFixed(1)}`;
+  return (
+    <div className="rounded-lg border border-border bg-panel p-4">
+      <div className="text-[10px] uppercase tracking-wider text-zinc-500">
+        Aggregate pressure
+      </div>
+      <div className="mt-1 flex items-baseline gap-3">
+        <span className="font-mono text-4xl tabular-nums" style={{ color: tone.fg }}>
+          {value.toFixed(1)}
+        </span>
+        <span className="text-xs text-zinc-500">/ 100</span>
+      </div>
+      <div className="mt-2 flex items-center justify-between text-[11px]">
+        <span
+          className="rounded border px-1.5 py-0.5 uppercase tracking-wider"
+          style={{ color: tone.fg, borderColor: tone.fill }}
+        >
+          {tone.label}
+        </span>
+        <span className={delta >= 0 ? "text-red-400" : "text-emerald-400"}>
+          {deltaText} vs 90d ago
+        </span>
+      </div>
+      <div className="mt-3 h-1.5 w-full overflow-hidden rounded bg-zinc-800">
+        <div
+          className="h-full"
+          style={{ width: `${value}%`, background: tone.fg }}
+        />
+      </div>
+      <p className="mt-3 text-[11px] leading-relaxed text-zinc-500">
+        Importance-weighted average of all event scores. Higher means broader
+        macro / risk pressure across the universe.
+      </p>
+    </div>
+  );
+}
+
+function AggregatePressureTimeline({
+  values,
+  timestamps,
+  band,
+}: {
+  values: number[];
+  timestamps: number[];
+  band: "calm" | "stress" | "panic";
+}) {
+  if (values.length < 2) {
+    return (
+      <div className="flex h-full items-center justify-center rounded-lg border border-border bg-panel p-4 text-sm text-zinc-500">
+        Not enough history to plot aggregate pressure timeline.
+      </div>
+    );
+  }
+  const tone = PRESSURE_TONE[band];
+  const W = 1000;
+  const H = 180;
+  const padL = 36;
+  const padR = 8;
+  const padT = 8;
+  const padB = 22;
+  const innerW = W - padL - padR;
+  const innerH = H - padT - padB;
+  const minV = 0;
+  const maxV = 100;
+  const stepX = innerW / (values.length - 1);
+  const xOf = (i: number) => padL + i * stepX;
+  const yOf = (v: number) => padT + innerH - ((v - minV) / (maxV - minV)) * innerH;
+
+  const linePts = values.map((v, i) => `${xOf(i).toFixed(2)},${yOf(v).toFixed(2)}`).join(" ");
+  const areaPath =
+    `M ${xOf(0).toFixed(2)},${yOf(values[0]).toFixed(2)} ` +
+    values.map((v, i) => `L ${xOf(i).toFixed(2)},${yOf(v).toFixed(2)}`).join(" ") +
+    ` L ${xOf(values.length - 1).toFixed(2)},${yOf(0).toFixed(2)} L ${xOf(0).toFixed(2)},${yOf(0).toFixed(2)} Z`;
+
+  const tsFmt = (t: number) => {
+    if (!t) return "";
+    const d = new Date(t * 1000);
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+  };
+  const xTicks = [0, Math.floor(values.length / 2), values.length - 1];
+
+  return (
+    <div className="rounded-lg border border-border bg-panel p-4">
+      <div className="mb-3 flex items-baseline justify-between">
+        <div>
+          <div className="text-[10px] uppercase tracking-wider text-zinc-500">
+            Aggregate pressure · 90d
+          </div>
+          <div className="mt-1 text-sm text-zinc-300">
+            Last:{" "}
+            <span className="font-mono tabular-nums" style={{ color: tone.fg }}>
+              {values[values.length - 1].toFixed(1)}
+            </span>
+          </div>
+        </div>
+        <div className="text-[10px] uppercase tracking-wider text-zinc-500">
+          {tsFmt(timestamps[0])} → {tsFmt(timestamps[timestamps.length - 1])}
+        </div>
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} preserveAspectRatio="none">
+        {/* horizontal grid: 0, 50, 100 */}
+        {[0, 50, 100].map((g) => (
+          <line
+            key={g}
+            x1={padL}
+            x2={W - padR}
+            y1={yOf(g)}
+            y2={yOf(g)}
+            stroke="#1f1f23"
+            strokeDasharray="2,3"
+          />
+        ))}
+        {/* threshold lines for stress (50) and panic (65) */}
+        <line
+          x1={padL}
+          x2={W - padR}
+          y1={yOf(65)}
+          y2={yOf(65)}
+          stroke="rgba(248,113,113,0.35)"
+          strokeDasharray="3,3"
+        />
+        {[0, 50, 100].map((g) => (
+          <text
+            key={`yl-${g}`}
+            x={padL - 4}
+            y={yOf(g) + 3}
+            fontSize={9}
+            fill="#7a7a82"
+            textAnchor="end"
+          >
+            {g}
+          </text>
+        ))}
+        {xTicks.map((i) => (
+          <text
+            key={`xt-${i}`}
+            x={xOf(i)}
+            y={H - 6}
+            fontSize={9}
+            fill="#7a7a82"
+            textAnchor="middle"
+          >
+            {tsFmt(timestamps[i])}
+          </text>
+        ))}
+        <path d={areaPath} fill={tone.fill} />
+        <polyline fill="none" stroke={tone.fg} strokeWidth={1.4} points={linePts} />
+      </svg>
     </div>
   );
 }
