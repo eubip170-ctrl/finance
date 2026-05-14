@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { runRssIngest } from "@/lib/cron/jobs";
+import { runRssIngest, runNewsApiIngest } from "@/lib/cron/jobs";
 import { detectEventsFromBrain, listUnprocessedEvents } from "@/lib/studier/event-detector";
 import { inngest } from "@/lib/inngest/client";
 
@@ -43,6 +43,12 @@ async function run(req: Request) {
     out.rss = await runRssIngest({ maxItems: 80 });
   } catch (err) {
     out.rss_error = err instanceof Error ? err.message : String(err);
+  }
+
+  try {
+    out.newsapi = await runNewsApiIngest({ maxItems: 80, hoursBack: 48 });
+  } catch (err) {
+    out.newsapi_error = err instanceof Error ? err.message : String(err);
   }
 
   try {

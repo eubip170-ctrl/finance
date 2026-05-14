@@ -123,6 +123,18 @@ export const rssCronFn = inngest.createFunction(
   },
 );
 
+/** Cron: NewsAPI.ai broad macro/finance feed (every hour). */
+export const newsApiCronFn = inngest.createFunction(
+  { id: "newsapi-ingest-cron", retries: 1 },
+  { cron: "5 * * * *" },
+  async ({ step }) => {
+    return step.run("ingest-newsapi", async () => {
+      const { runNewsApiIngest } = await import("@/lib/cron/jobs");
+      return runNewsApiIngest({ maxItems: 80, hoursBack: 2 });
+    });
+  },
+);
+
 /** Cron: classify recent Brain docs into events (every 2 hours). */
 export const eventDetectCronFn = inngest.createFunction(
   { id: "event-detect-cron", retries: 1 },
@@ -166,6 +178,7 @@ export const functions = [
   reportFn,
   pipelineFn,
   rssCronFn,
+  newsApiCronFn,
   eventDetectCronFn,
   autoPipelineCronFn,
 ];
