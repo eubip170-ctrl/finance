@@ -6,36 +6,43 @@ import { useEffect, useMemo, useRef, useState } from "react";
 type Node = {
   id: string;
   label: string;
-  group: string;
+  source: string;
+  cluster: number;
   val: number;
   url: string | null;
   createdAt: string;
 };
-type Link = { source: string; target: string; value: number };
-type GraphData = { nodes: Node[]; links: Link[] };
+type Link = { source: string | Node; target: string | Node; value: number };
+type Cluster = { id: number; label: string; topics: string[]; size: number };
+type GraphData = { nodes: Node[]; links: Link[]; clusters: Cluster[] };
 
-// 3D renderer must be client-only (uses WebGL + window).
 const ForceGraph3D = dynamic(() => import("react-force-graph-3d"), { ssr: false });
 
-const SOURCE_COLORS: Record<string, string> = {
-  rss: "#5aa8ff",
-  news: "#5aa8ff",
-  manual: "#d4af37",
-  pdf: "#9b6dff",
-  market_note: "#3fb98f",
-  sim_output: "#ff7a59",
-  transcript: "#b58eff",
-  default: "#7a7a82",
-};
+// Carefully chosen palette: bright on dark, distinct hues, no near-duplicates.
+const CLUSTER_PALETTE = [
+  "#5aa8ff", // azure
+  "#d4af37", // gold
+  "#3fb98f", // mint
+  "#ff7a59", // coral
+  "#9b6dff", // violet
+  "#e83e8c", // magenta
+  "#f7d046", // lemon
+  "#6dd3ff", // sky
+];
 
-function colorFor(group: string): string {
-  return SOURCE_COLORS[group] ?? SOURCE_COLORS.default;
+function colorFor(cluster: number): string {
+  return CLUSTER_PALETTE[cluster % CLUSTER_PALETTE.length];
+}
+
+function getId(endpoint: string | Node): string {
+  return typeof endpoint === "string" ? endpoint : endpoint.id;
 }
 
 export function GraphView() {
   const [data, setData] = useState<GraphData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Node | null>(null);
+  const [hiddenClusters, setHiddenClusters] = useState<Set<number>>(new Set());
   const containerRef = useRef<HTMLDivElement>(null);
   const [dims, setDims] = useState({ w: 0, h: 0 });
 
@@ -46,7 +53,12 @@ export function GraphView() {
       .then((j) => {
         if (cancelled) return;
         if (j.error) setError(j.error);
-        else setData({ nodes: j.nodes ?? [], links: j.links ?? [] });
+        else
+          setData({
+            nodes: j.nodes ?? [],
+            links: j.links ?? [],
+            clusters: j.clusters ?? [],
+          });
       })
       .catch((e) => !cancelled && setError(String(e)));
     return () => {
@@ -66,11 +78,31 @@ export function GraphView() {
     return () => ro.disconnect();
   }, []);
 
-  const groups = useMemo(() => {
-    if (!data) return [];
-    const set = new Set(data.nodes.map((n) => n.group));
-    return [...set];
+  const filtered = useMemo<GraphData | null>(() => {
+    if (!data) return null;
+    if (hiddenClusters.size === 0) return data;
+    const nodes = data.nodes.filter((n) => !hiddenClusters.has(n.cluster));
+    const allowed = new Set(nodes.map((n) => n.id));
+    const links = data.links.filter(
+      (l) => allowed.has(getId(l.source)) && allowed.has(getId(l.target)),
+    );
+    return { nodes, links, clusters: data.clusters };
+  }, [data, hiddenClusters]);
+
+  const clusterById = useMemo(() => {
+    const m = new Map<number, Cluster>();
+    for (const c of data?.clusters ?? []) m.set(c.id, c);
+    return m;
   }, [data]);
+
+  function toggleCluster(id: number) {
+    setHiddenClusters((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   return (
     <div ref={containerRef} className="relative h-full w-full bg-bg">
@@ -88,48 +120,89 @@ export function GraphView() {
 
       {!data && !error && (
         <div className="flex h-full items-center justify-center text-zinc-500">
-          Caricamento grafo…
+          Caricamento + clustering semantico…
         </div>
       )}
 
-      {data && data.nodes.length > 0 && dims.w > 0 && (
+      {filtered && filtered.nodes.length > 0 && dims.w > 0 && (
         <ForceGraph3D
-          graphData={data}
+          graphData={filtered}
           width={dims.w}
           height={dims.h}
           backgroundColor="#0a0a0b"
           nodeId="id"
-          nodeLabel={(n) => `<div style="max-width:300px"><b>${escapeHtml((n as Node).label)}</b><br/><span style="color:#888">${(n as Node).group}</span></div>`}
-          nodeColor={(n) => colorFor((n as Node).group)}
+          nodeLabel={(n) => {
+            const node = n as Node;
+            const c = clusterById.get(node.cluster);
+            return `<div style="max-width:320px;padding:4px 6px"><b>${escapeHtml(node.label)}</b><br/><span style="color:#888;font-size:11px">${c ? escapeHtml(c.label) : "cluster"} · ${escapeHtml(node.source)}</span></div>`;
+          }}
+          nodeColor={(n) => colorFor((n as Node).cluster)}
           nodeOpacity={0.95}
-          nodeResolution={12}
-          linkColor={() => "rgba(180,180,200,0.15)"}
-          linkWidth={(l) => Math.max(0.2, ((l as Link).value - 0.5) * 2)}
-          linkOpacity={0.4}
+          nodeResolution={14}
+          // Stronger links inside the same cluster → visible groups.
+          linkColor={(l) => {
+            const s = l.source as Node;
+            const t = l.target as Node;
+            if (s.cluster === t.cluster) {
+              return `${colorFor(s.cluster)}77`;
+            }
+            return "rgba(180,180,200,0.10)";
+          }}
+          linkWidth={(l) => {
+            const s = l.source as Node;
+            const t = l.target as Node;
+            const base = ((l as Link).value - 0.35) * 3;
+            return s.cluster === t.cluster ? Math.max(0.6, base) : Math.max(0.2, base * 0.4);
+          }}
+          linkOpacity={0.6}
           enableNodeDrag={false}
           onNodeClick={(n) => setSelected(n as Node)}
+          d3AlphaDecay={0.02}
+          d3VelocityDecay={0.3}
+          warmupTicks={60}
         />
       )}
 
-      {data && (
-        <div className="pointer-events-none absolute bottom-3 left-3 flex flex-wrap gap-2 text-xs">
-          {groups.map((g) => (
-            <span
-              key={g}
-              className="rounded bg-panel/80 px-2 py-1 text-zinc-300"
-              style={{ borderLeft: `3px solid ${colorFor(g)}` }}
-            >
-              {g}
-            </span>
-          ))}
-          <span className="rounded bg-panel/80 px-2 py-1 text-zinc-500">
+      {data && data.clusters.length > 0 && (
+        <aside className="pointer-events-auto absolute left-3 top-3 max-w-xs rounded-lg border border-border bg-panel/90 p-3 text-xs backdrop-blur">
+          <div className="mb-2 text-[10px] uppercase tracking-wider text-zinc-500">
+            Clusters (click to toggle)
+          </div>
+          <ul className="space-y-1">
+            {data.clusters.map((c) => {
+              const hidden = hiddenClusters.has(c.id);
+              return (
+                <li key={c.id}>
+                  <button
+                    onClick={() => toggleCluster(c.id)}
+                    className={`flex w-full items-center gap-2 rounded px-2 py-1 text-left transition hover:bg-zinc-800/60 ${
+                      hidden ? "opacity-40" : ""
+                    }`}
+                  >
+                    <span
+                      className="inline-block h-3 w-3 shrink-0 rounded-sm"
+                      style={{ backgroundColor: colorFor(c.id) }}
+                    />
+                    <span className="flex-1 truncate text-zinc-100">{c.label}</span>
+                    <span className="text-zinc-500">{c.size}</span>
+                  </button>
+                  {c.topics.length > 0 && (
+                    <div className="pl-5 text-[10px] text-zinc-500">
+                      {c.topics.slice(0, 3).join(" · ")}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+          <div className="mt-2 border-t border-border pt-2 text-[10px] text-zinc-500">
             {data.nodes.length} docs · {data.links.length} links
-          </span>
-        </div>
+          </div>
+        </aside>
       )}
 
       {selected && (
-        <aside className="absolute right-3 top-3 max-h-[70vh] w-80 overflow-auto rounded-lg border border-border bg-panel p-4 text-sm shadow-xl">
+        <aside className="absolute right-3 top-3 max-h-[75vh] w-80 overflow-auto rounded-lg border border-border bg-panel p-4 text-sm shadow-xl">
           <div className="mb-2 flex items-start justify-between gap-2">
             <h2 className="text-zinc-100">{selected.label}</h2>
             <button
@@ -140,14 +213,19 @@ export function GraphView() {
               ✕
             </button>
           </div>
-          <div className="mb-3 text-xs text-zinc-500">
+          <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
             <span
-              className="mr-2 inline-block rounded px-2 py-0.5"
-              style={{ backgroundColor: `${colorFor(selected.group)}22`, color: colorFor(selected.group) }}
+              className="rounded px-2 py-0.5"
+              style={{
+                backgroundColor: `${colorFor(selected.cluster)}22`,
+                color: colorFor(selected.cluster),
+              }}
             >
-              {selected.group}
+              {clusterById.get(selected.cluster)?.label ?? `Cluster ${selected.cluster + 1}`}
             </span>
-            {new Date(selected.createdAt).toLocaleString()}
+            <span className="text-zinc-500">{selected.source}</span>
+            <span className="text-zinc-600">·</span>
+            <span className="text-zinc-500">{new Date(selected.createdAt).toLocaleString()}</span>
           </div>
           {selected.url && (
             <a
