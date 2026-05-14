@@ -6,6 +6,7 @@ const items = [
   { href: "/focus", label: "Focus" },
   { href: "/charts", label: "Charts" },
   { href: "/brain", label: "Brain" },
+  { href: "/brain/graph", label: "Graph" },
   { href: "/markets", label: "Markets" },
   { href: "/events", label: "Events" },
 ];

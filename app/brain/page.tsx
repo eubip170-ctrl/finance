@@ -62,14 +62,24 @@ export default async function BrainPage() {
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-12">
-      <Link href="/" className="text-sm text-zinc-500 hover:text-zinc-300">
-        ← Home
-      </Link>
-      <h1 className="mt-2 text-3xl font-semibold">Second Brain</h1>
-      <p className="mt-2 text-sm text-zinc-400">
-        Ingestione automatica da RSS (banche centrali, treasuries, macro news) ogni 30
-        minuti. Retrieval semantico sul corpus indicizzato.
-      </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <Link href="/" className="text-sm text-zinc-500 hover:text-zinc-300">
+            ← Home
+          </Link>
+          <h1 className="mt-2 text-3xl font-semibold">Second Brain</h1>
+          <p className="mt-2 text-sm text-zinc-400">
+            Ingestione automatica da RSS (banche centrali, treasuries, macro news) ogni 30
+            minuti. Retrieval semantico sul corpus indicizzato.
+          </p>
+        </div>
+        <Link
+          href="/brain/graph"
+          className="self-start rounded-md border border-accent/40 bg-accent/10 px-3 py-2 text-sm text-accent hover:bg-accent/20"
+        >
+          🌐 3D Graph
+        </Link>
+      </div>
 
       {stats.error && (
         <div className="mt-4 rounded-md border border-red-900 bg-red-950/40 p-3 text-sm text-red-300">
