@@ -111,42 +111,51 @@ export const pipelineFn = inngest.createFunction(
   },
 );
 
-/** Cron: ingest curated RSS feeds into the Second Brain. */
+/** Cron: ingest curated RSS feeds into the Second Brain (every 30 min). */
 export const rssCronFn = inngest.createFunction(
   { id: "rss-ingest-cron", retries: 1 },
-  { cron: "0 */2 * * *" }, // every 2 hours
+  { cron: "*/30 * * * *" },
   async ({ step }) => {
-    const items = await step.run("fetch-feeds", async () => {
-      const { fetchAllFeeds } = await import("@/lib/markets/rss");
-      return fetchAllFeeds();
+    return step.run("ingest-rss", async () => {
+      const { runRssIngest } = await import("@/lib/cron/jobs");
+      return runRssIngest({ maxItems: 60 });
     });
+  },
+);
 
-    const supabase = supabaseAdmin();
-    const { ingestDocument } = await import("@/lib/brain/ingest");
+/** Cron: classify recent Brain docs into events (every 2 hours). */
+export const eventDetectCronFn = inngest.createFunction(
+  { id: "event-detect-cron", retries: 1 },
+  { cron: "15 */2 * * *" },
+  async ({ step }) => {
+    return step.run("detect", async () => {
+      const { detectEventsFromBrain } = await import("@/lib/studier/event-detector");
+      return detectEventsFromBrain({
+        lookbackHours: 6,
+        maxDocs: 30,
+        minImpactToCreate: 0.45,
+      });
+    });
+  },
+);
 
-    let inserted = 0;
-    for (const item of items.slice(0, 30)) {
-      if (!item.title || !item.contentSnippet) continue;
-      const { data: existing } = await supabase
-        .from("brain_documents")
-        .select("id")
-        .eq("source_url", item.link ?? "")
-        .maybeSingle();
-      if (existing) continue;
-
-      await step.run(`ingest-${inserted}`, () =>
-        ingestDocument({
-          sourceType: "rss",
-          title: item.title,
-          rawText: `${item.title}\n\n${item.contentSnippet ?? ""}`,
-          sourceUrl: item.link,
-          publishedAt: item.isoDate,
-          metadata: { feed: item.feedName, category: item.category },
-        }),
-      );
-      inserted++;
+/** Cron: auto-run the full pipeline on the top-impact unprocessed events. */
+export const autoPipelineCronFn = inngest.createFunction(
+  { id: "auto-pipeline-cron", retries: 0, concurrency: { limit: 1 } },
+  { cron: "30 */4 * * *" },
+  async ({ step }) => {
+    const candidates = await step.run("pick-events", async () => {
+      const { listUnprocessedEvents } = await import("@/lib/studier/event-detector");
+      return listUnprocessedEvents(2);
+    });
+    if (candidates.length === 0) return { dispatched: 0 };
+    for (const c of candidates) {
+      await step.sendEvent(`dispatch-${c.id}`, {
+        name: "event/pipeline.requested",
+        data: { eventId: c.id, maxRounds: 4 },
+      });
     }
-    return { fetched: items.length, inserted };
+    return { dispatched: candidates.length };
   },
 );
 
@@ -157,4 +166,6 @@ export const functions = [
   reportFn,
   pipelineFn,
   rssCronFn,
+  eventDetectCronFn,
+  autoPipelineCronFn,
 ];
