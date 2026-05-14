@@ -1,14 +1,26 @@
 /**
- * Thin Yahoo Finance client using their public quote endpoint.
+ * Yahoo Finance client.
  *
- * We avoid the npm `yahoo-finance2` package because it ships Deno-only test
- * modules in the published tree that break Next.js' webpack build. The endpoint
- * used here is the one consumed by yahoo.com's own widgets — no auth, no key.
+ * We use the v8 chart endpoint (`/v8/finance/chart/{SYMBOL}`) instead of v7
+ * `/v7/finance/quote` because:
+ *   - v7 requires a "crumb" cookie since 2024 and is heavily rate-limited from
+ *     cloud IP ranges (returns 429 on Vercel).
+ *   - v8 chart is unauthenticated, more permissive, and exposes the live
+ *     regularMarketPrice / previousClose / change% in `chart.result[0].meta`.
+ *
+ * We fan out one fetch per symbol (Yahoo allows this in parallel) and tolerate
+ * per-symbol failures so the dashboard degrades gracefully when one ticker
+ * misbehaves.
  */
 
-const QUOTE_URL = "https://query1.finance.yahoo.com/v7/finance/quote";
-const UA =
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36";
+const BASE = "https://query1.finance.yahoo.com/v8/finance/chart";
+const HEADERS = {
+  "User-Agent":
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36",
+  Accept: "application/json,text/plain,*/*",
+  "Accept-Language": "en-US,en;q=0.9",
+  Referer: "https://finance.yahoo.com/",
+};
 
 export type Quote = {
   symbol: string;
@@ -20,28 +32,56 @@ export type Quote = {
   marketCap?: number;
 };
 
-export async function getQuotes(symbols: string[]): Promise<Quote[]> {
-  if (symbols.length === 0) return [];
-  const url = `${QUOTE_URL}?symbols=${encodeURIComponent(symbols.join(","))}`;
+async function fetchOne(symbol: string): Promise<Quote | null> {
+  const url = `${BASE}/${encodeURIComponent(symbol)}?interval=1d&range=1d`;
   const res = await fetch(url, {
-    headers: { "User-Agent": UA, Accept: "application/json" },
+    headers: HEADERS,
     next: { revalidate: 60 },
   });
-  if (!res.ok) throw new Error(`yahoo quote failed: ${res.status}`);
+  if (!res.ok) return null;
   const json = (await res.json()) as {
-    quoteResponse?: { result?: Array<Record<string, unknown>> };
+    chart?: {
+      result?: Array<{
+        meta?: {
+          symbol?: string;
+          regularMarketPrice?: number;
+          chartPreviousClose?: number;
+          previousClose?: number;
+          regularMarketTime?: number;
+          currency?: string;
+          longName?: string;
+          shortName?: string;
+          marketCap?: number;
+        };
+      }>;
+      error?: { code?: string; description?: string } | null;
+    };
   };
-  const rows = json.quoteResponse?.result ?? [];
-  return rows.map((q) => ({
-    symbol: String(q.symbol ?? ""),
-    shortName: (q.shortName as string) ?? (q.longName as string) ?? undefined,
-    regularMarketPrice: q.regularMarketPrice as number | undefined,
-    regularMarketChangePercent: q.regularMarketChangePercent as number | undefined,
+  const meta = json.chart?.result?.[0]?.meta;
+  if (!meta || typeof meta.regularMarketPrice !== "number") return null;
+  const prev = meta.previousClose ?? meta.chartPreviousClose;
+  const changePct =
+    typeof prev === "number" && prev !== 0
+      ? ((meta.regularMarketPrice - prev) / prev) * 100
+      : undefined;
+  return {
+    symbol: meta.symbol ?? symbol,
+    shortName: meta.shortName ?? meta.longName,
+    regularMarketPrice: meta.regularMarketPrice,
+    regularMarketChangePercent: changePct,
     regularMarketTime:
-      typeof q.regularMarketTime === "number"
-        ? new Date((q.regularMarketTime as number) * 1000)
+      typeof meta.regularMarketTime === "number"
+        ? new Date(meta.regularMarketTime * 1000)
         : undefined,
-    currency: q.currency as string | undefined,
-    marketCap: q.marketCap as number | undefined,
-  }));
+    currency: meta.currency,
+    marketCap: meta.marketCap,
+  };
+}
+
+export async function getQuotes(symbols: string[]): Promise<Quote[]> {
+  if (symbols.length === 0) return [];
+  const results = await Promise.allSettled(symbols.map(fetchOne));
+  return results
+    .map((r) => (r.status === "fulfilled" ? r.value : null))
+    .filter((q): q is Quote => q !== null);
 }
