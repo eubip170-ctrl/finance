@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
-import { MODELS, completeJSON } from "@/lib/llm/anthropic";
+import { MODELS, completeJSON } from "@/lib/llm/openai";
 import { ONTOLOGY_PROMPT, SYSTEM_MACRO_ANALYST } from "./prompts";
 
 type LLMOntology = {

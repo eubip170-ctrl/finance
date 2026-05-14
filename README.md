@@ -23,8 +23,8 @@ Il progetto cresce per sprint. Lo **sprint 1** copre le fondamenta:
 | App | Next.js 15 (App Router, RSC) + TypeScript + Tailwind |
 | DB / Vector | Supabase (Postgres + pgvector) |
 | Job orchestration | Inngest (step functions) + Vercel Cron |
-| LLM | Anthropic Claude (Opus 4.7 reasoning, Haiku 4.5 ausiliario) |
-| Embeddings | Voyage AI (raccomandato) o OpenAI (fallback) |
+| LLM | OpenAI (`gpt-4o-mini` di default, configurabile via env) |
+| Embeddings | OpenAI `text-embedding-3-small` forzato a 1024 dims (o Voyage opzionale) |
 | Markets data | `yahoo-finance2` + `rss-parser` |
 | Hosting | Vercel |
 
