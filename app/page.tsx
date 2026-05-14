@@ -129,6 +129,21 @@ export default async function HomePage() {
 
       <section className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Card
+          href="/dashboard"
+          title="Market Dashboard"
+          description="Cross-asset pulse, top movers, performance matrix e sector heatmap (live Yahoo)."
+        />
+        <Card
+          href="/focus"
+          title="Focus"
+          description="Eventi macro/geopolitici monitorati con score, momentum e regime di mercato."
+        />
+        <Card
+          href="/charts"
+          title="Charts"
+          description="Analisi tecnica con SMA/EMA, drawdown, vol realizzata e returns multi-window."
+        />
+        <Card
           href="/events"
           title="Events"
           description="Eventi macro/geopolitici classificati automaticamente dal news feed."
