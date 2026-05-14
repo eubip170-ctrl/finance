@@ -15,10 +15,8 @@ export const maxDuration = 300;
  *
  * Idempotent: dedupes by source URL and event document id.
  *
- * Protected by SEED_TOKEN env var. Without it, the endpoint refuses.
- * Set SEED_TOKEN to any random string in Vercel and call with header
- *   x-seed-token: <your_token>
- * or query param ?token=<your_token>.
+ * Optional protection: set SEED_TOKEN to require ?token=... on the URL.
+ * Leave unset to allow open access (fine for personal tools).
  */
 export async function POST(req: Request) {
   return run(req);
@@ -30,17 +28,13 @@ export async function GET(req: Request) {
 
 async function run(req: Request) {
   const expected = process.env.SEED_TOKEN;
-  if (!expected) {
-    return NextResponse.json(
-      { error: "SEED_TOKEN not configured on the server" },
-      { status: 503 },
-    );
-  }
-  const { searchParams } = new URL(req.url);
-  const tokenFromQuery = searchParams.get("token");
-  const tokenFromHeader = req.headers.get("x-seed-token");
-  if (tokenFromQuery !== expected && tokenFromHeader !== expected) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (expected) {
+    const { searchParams } = new URL(req.url);
+    const tokenFromQuery = searchParams.get("token");
+    const tokenFromHeader = req.headers.get("x-seed-token");
+    if (tokenFromQuery !== expected && tokenFromHeader !== expected) {
+      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    }
   }
 
   const out: Record<string, unknown> = {};
