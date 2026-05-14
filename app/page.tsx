@@ -59,12 +59,12 @@ export default async function HomePage() {
   const c = await loadCounters();
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-12">
-      <header className="mb-8">
-        <h1 className="text-4xl font-semibold tracking-tight text-zinc-100">
+    <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-12">
+      <header className="mb-6 sm:mb-8">
+        <h1 className="text-3xl font-semibold tracking-tight text-zinc-100 sm:text-4xl">
           Event / Macro Studier
         </h1>
-        <p className="mt-3 max-w-2xl text-zinc-400">
+        <p className="mt-3 max-w-2xl text-sm text-zinc-400 sm:text-base">
           Autonomous investment research. Cron jobs ingest macro news every 30 min,
           classify them into events, then run multi-actor simulations and produce
           scenario reports. No manual seeding needed.
@@ -84,7 +84,7 @@ export default async function HomePage() {
         <Stat label="Reports" value={c.reports} />
       </section>
 
-      <section className="mt-10 grid grid-cols-1 gap-4 md:grid-cols-2">
+      <section className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2 sm:mt-10">
         <Panel title="Recent events" href="/events">
           {c.recentEvents.length === 0 ? (
             <Empty>Nessun evento ancora — il cron parte ogni 2h.</Empty>
@@ -127,7 +127,7 @@ export default async function HomePage() {
         </Panel>
       </section>
 
-      <section className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <section className="mt-8 grid grid-cols-1 gap-4 sm:mt-10 sm:grid-cols-2">
         <Card
           href="/events"
           title="Events"

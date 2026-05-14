@@ -33,20 +33,22 @@ export default async function EventsPage() {
   }
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-12">
-      <div className="mb-8 flex items-center justify-between">
+    <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-12">
+      <div className="mb-6 flex flex-col gap-3 sm:mb-8 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <Link href="/" className="text-sm text-zinc-500 hover:text-zinc-300">
             ← Home
           </Link>
-          <h1 className="mt-2 text-3xl font-semibold text-zinc-100">Events</h1>
+          <h1 className="mt-2 text-2xl font-semibold text-zinc-100 sm:text-3xl">
+            Events
+          </h1>
           <p className="mt-2 text-sm text-zinc-400">
             Seed eventi macro/geopolitici e pipeline studier.
           </p>
         </div>
         <Link
           href="/events/new"
-          className="rounded-md border border-accent/40 bg-accent/10 px-4 py-2 text-sm text-accent hover:bg-accent/20"
+          className="self-start rounded-md border border-accent/40 bg-accent/10 px-4 py-2 text-sm text-accent hover:bg-accent/20"
         >
           + New event
         </Link>

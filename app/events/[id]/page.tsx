@@ -44,14 +44,16 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
   }
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-12">
+    <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-12">
       <Link href="/events" className="text-sm text-zinc-500 hover:text-zinc-300">
         ← Events
       </Link>
 
-      <header className="mt-2 flex items-start justify-between gap-6">
-        <div>
-          <h1 className="text-3xl font-semibold">{event.title}</h1>
+      <header className="mt-2 flex flex-col items-start gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+        <div className="min-w-0">
+          <h1 className="break-words text-2xl font-semibold sm:text-3xl">
+            {event.title}
+          </h1>
           <p className="mt-2 text-sm text-zinc-500">
             {event.event_type} · status{" "}
             <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-xs text-zinc-300">

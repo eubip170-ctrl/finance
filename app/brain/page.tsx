@@ -61,13 +61,13 @@ export default async function BrainPage() {
   const stats = await loadBrainStats();
 
   return (
-    <main className="mx-auto max-w-3xl px-6 py-12">
-      <div className="flex items-start justify-between">
+    <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <Link href="/" className="text-sm text-zinc-500 hover:text-zinc-300">
             ← Home
           </Link>
-          <h1 className="mt-2 text-3xl font-semibold">Second Brain</h1>
+          <h1 className="mt-2 text-2xl font-semibold sm:text-3xl">Second Brain</h1>
           <p className="mt-2 text-sm text-zinc-400">
             Ingestione automatica da RSS (banche centrali, treasuries, macro news) ogni 30
             minuti. Retrieval semantico sul corpus indicizzato.
@@ -75,7 +75,7 @@ export default async function BrainPage() {
         </div>
         <Link
           href="/brain/graph"
-          className="rounded-md border border-accent/40 bg-accent/10 px-3 py-2 text-sm text-accent hover:bg-accent/20"
+          className="self-start rounded-md border border-accent/40 bg-accent/10 px-3 py-2 text-sm text-accent hover:bg-accent/20"
         >
           🌐 3D Graph
         </Link>

@@ -17,13 +17,13 @@ export default async function MarketsPage() {
   const feedList = feed.status === "fulfilled" ? feed.value.slice(0, 20) : [];
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-12">
+    <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-12">
       <Link href="/" className="text-sm text-zinc-500 hover:text-zinc-300">
         ← Home
       </Link>
-      <h1 className="mt-2 text-3xl font-semibold">Markets</h1>
+      <h1 className="mt-2 text-2xl font-semibold sm:text-3xl">Markets</h1>
 
-      <section className="mt-8">
+      <section className="mt-6 sm:mt-8">
         <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-zinc-400">
           Watchlist
         </h2>
@@ -58,7 +58,7 @@ export default async function MarketsPage() {
         )}
       </section>
 
-      <section className="mt-10">
+      <section className="mt-8 sm:mt-10">
         <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-zinc-400">
           Recent news
         </h2>

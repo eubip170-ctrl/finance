@@ -12,11 +12,11 @@ export default async function ReportsListPage() {
     .limit(100);
 
   return (
-    <main className="mx-auto max-w-3xl px-6 py-12">
+    <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
       <Link href="/" className="text-sm text-zinc-500 hover:text-zinc-300">
         ← Home
       </Link>
-      <h1 className="mt-2 text-3xl font-semibold">Reports</h1>
+      <h1 className="mt-2 text-2xl font-semibold sm:text-3xl">Reports</h1>
       {!data || data.length === 0 ? (
         <p className="mt-6 text-zinc-500">No reports yet.</p>
       ) : (

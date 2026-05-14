@@ -43,6 +43,7 @@ export function GraphView() {
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Node | null>(null);
   const [hiddenClusters, setHiddenClusters] = useState<Set<number>>(new Set());
+  const [legendOpen, setLegendOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const [dims, setDims] = useState({ w: 0, h: 0 });
 
@@ -182,50 +183,64 @@ export function GraphView() {
       )}
 
       {data && data.clusters.length > 0 && (
-        <aside className="pointer-events-auto absolute left-3 top-3 max-w-xs rounded-lg border border-border bg-panel/90 p-3 text-xs backdrop-blur">
-          <div className="mb-2 text-[10px] uppercase tracking-wider text-zinc-500">
-            Clusters (click to toggle)
-          </div>
-          <ul className="space-y-1">
-            {data.clusters.map((c) => {
-              const hidden = hiddenClusters.has(c.id);
-              return (
-                <li key={c.id}>
-                  <button
-                    onClick={() => toggleCluster(c.id)}
-                    className={`flex w-full items-center gap-2 rounded px-2 py-1 text-left transition hover:bg-zinc-800/60 ${
-                      hidden ? "opacity-40" : ""
-                    }`}
-                  >
-                    <span
-                      className="inline-block h-3 w-3 shrink-0 rounded-sm"
-                      style={{ backgroundColor: colorFor(c.id) }}
-                    />
-                    <span className="flex-1 truncate text-zinc-100">{c.label}</span>
-                    <span className="text-zinc-500">{c.size}</span>
-                  </button>
-                  {c.topics.length > 0 && (
-                    <div className="pl-5 text-[10px] text-zinc-500">
-                      {c.topics.slice(0, 3).join(" · ")}
-                    </div>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-          <div className="mt-2 border-t border-border pt-2 text-[10px] text-zinc-500">
-            {data.nodes.length} docs · {data.links.length} links
-          </div>
-        </aside>
+        <>
+          {/* Mobile toggle button */}
+          <button
+            onClick={() => setLegendOpen((v) => !v)}
+            className="absolute left-3 top-3 z-20 rounded-md border border-border bg-panel/90 px-3 py-1.5 text-xs text-zinc-200 backdrop-blur md:hidden"
+          >
+            {legendOpen ? "✕ Close" : `☰ Clusters (${data.clusters.length})`}
+          </button>
+
+          <aside
+            className={`pointer-events-auto absolute left-3 z-10 max-w-[88vw] rounded-lg border border-border bg-panel/95 p-3 text-xs backdrop-blur transition sm:max-w-xs md:block ${
+              legendOpen ? "top-14 block" : "hidden md:top-3"
+            } md:top-3`}
+          >
+            <div className="mb-2 text-[10px] uppercase tracking-wider text-zinc-500">
+              Clusters (click to toggle)
+            </div>
+            <ul className="max-h-[55vh] space-y-1 overflow-y-auto pr-1">
+              {data.clusters.map((c) => {
+                const hidden = hiddenClusters.has(c.id);
+                return (
+                  <li key={c.id}>
+                    <button
+                      onClick={() => toggleCluster(c.id)}
+                      className={`flex w-full items-center gap-2 rounded px-2 py-1 text-left transition hover:bg-zinc-800/60 ${
+                        hidden ? "opacity-40" : ""
+                      }`}
+                    >
+                      <span
+                        className="inline-block h-3 w-3 shrink-0 rounded-sm"
+                        style={{ backgroundColor: colorFor(c.id) }}
+                      />
+                      <span className="flex-1 truncate text-zinc-100">{c.label}</span>
+                      <span className="text-zinc-500">{c.size}</span>
+                    </button>
+                    {c.topics.length > 0 && (
+                      <div className="pl-5 text-[10px] text-zinc-500">
+                        {c.topics.slice(0, 3).join(" · ")}
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+            <div className="mt-2 border-t border-border pt-2 text-[10px] text-zinc-500">
+              {data.nodes.length} docs · {data.links.length} links
+            </div>
+          </aside>
+        </>
       )}
 
       {selected && (
-        <aside className="absolute right-3 top-3 max-h-[75vh] w-80 overflow-auto rounded-lg border border-border bg-panel p-4 text-sm shadow-xl">
+        <aside className="absolute inset-x-3 bottom-3 z-20 max-h-[55vh] overflow-auto rounded-lg border border-border bg-panel p-4 text-sm shadow-xl md:inset-x-auto md:bottom-auto md:right-3 md:top-3 md:max-h-[75vh] md:w-80">
           <div className="mb-2 flex items-start justify-between gap-2">
-            <h2 className="text-zinc-100">{selected.label}</h2>
+            <h2 className="break-words text-zinc-100">{selected.label}</h2>
             <button
               onClick={() => setSelected(null)}
-              className="rounded text-zinc-500 hover:text-zinc-200"
+              className="shrink-0 rounded text-zinc-500 hover:text-zinc-200"
               aria-label="Close"
             >
               ✕
