@@ -95,6 +95,20 @@ export function GraphView() {
     return m;
   }, [data]);
 
+  // Index nodes by id so linkColor/linkWidth can resolve endpoints when
+  // d3-force has not yet replaced source/target string ids with node objects.
+  const nodeById = useMemo(() => {
+    const m = new Map<string, Node>();
+    for (const n of filtered?.nodes ?? []) m.set(n.id, n);
+    return m;
+  }, [filtered]);
+
+  function resolve(endpoint: string | Node | undefined): Node | undefined {
+    if (!endpoint) return undefined;
+    if (typeof endpoint === "string") return nodeById.get(endpoint);
+    return endpoint;
+  }
+
   function toggleCluster(id: number) {
     setHiddenClusters((prev) => {
       const next = new Set(prev);
@@ -140,21 +154,25 @@ export function GraphView() {
           nodeOpacity={0.95}
           nodeResolution={14}
           // Stronger links inside the same cluster → visible groups.
+          // d3-force-3d initially passes source/target as id strings; resolve
+          // them via nodeById to avoid an undefined cluster and a black line.
           linkColor={(l) => {
-            const s = l.source as Node;
-            const t = l.target as Node;
-            if (s.cluster === t.cluster) {
-              return `${colorFor(s.cluster)}77`;
+            const s = resolve(l.source as string | Node | undefined);
+            const t = resolve(l.target as string | Node | undefined);
+            if (s && t && s.cluster === t.cluster) {
+              return colorFor(s.cluster);
             }
-            return "rgba(180,180,200,0.10)";
+            return "#b8b8c8";
           }}
           linkWidth={(l) => {
-            const s = l.source as Node;
-            const t = l.target as Node;
+            const s = resolve(l.source as string | Node | undefined);
+            const t = resolve(l.target as string | Node | undefined);
             const base = ((l as Link).value - 0.35) * 3;
-            return s.cluster === t.cluster ? Math.max(0.6, base) : Math.max(0.2, base * 0.4);
+            return s && t && s.cluster === t.cluster
+              ? Math.max(0.8, base)
+              : Math.max(0.3, base * 0.5);
           }}
-          linkOpacity={0.6}
+          linkOpacity={0.85}
           enableNodeDrag={false}
           onNodeClick={(n) => setSelected(n as Node)}
           d3AlphaDecay={0.02}
