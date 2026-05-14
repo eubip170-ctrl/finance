@@ -29,6 +29,10 @@ export default async function MarketsPage() {
         </h2>
         {quotes.status === "rejected" ? (
           <p className="text-sm text-red-400">Yahoo error: {String(quotes.reason)}</p>
+        ) : quoteList.length === 0 ? (
+          <p className="text-sm text-zinc-500">
+            Yahoo Finance temporarily rate-limited this region. Refresh in ~1 minute.
+          </p>
         ) : (
           <ul className="grid grid-cols-2 gap-3 md:grid-cols-4">
             {quoteList.map((q) => (
