@@ -4,6 +4,20 @@
 
 :root {
   color-scheme: dark;
+  /* RGB triplets so the recharts Customized<rgb(var(--x))> pattern works. */
+  --color-bg: 0 0 0;
+  --color-bg-secondary: 18 18 20;
+  --color-card: 10 10 11;
+  --color-border: 38 38 41;
+  --color-heading: 228 228 231;
+  --color-body: 209 209 214;
+  --color-muted: 107 107 114;
+  --color-accent: 245 166 35;
+  --color-positive: 61 220 151;
+  --color-negative: 255 107 107;
+  --chart-axis: 107 107 114;
+  --chart-grid: 38 38 41;
+  --chart-tick: 138 138 145;
 }
 
 html,
@@ -36,4 +50,25 @@ body {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #3a3a3f;
+}
+
+@layer components {
+  .page-title {
+    @apply text-xs font-bold uppercase tracking-[0.3em] text-zinc-100;
+  }
+  .page-subtitle {
+    @apply mt-1 text-2xs uppercase tracking-widest text-zinc-500;
+  }
+  .input-field {
+    @apply block w-full border border-border bg-black px-2 py-1 text-xs text-zinc-100 outline-none transition focus:border-accent focus:ring-0;
+  }
+  .btn-primary {
+    @apply inline-flex items-center gap-1 border border-accent bg-accent/10 px-2 py-1 text-2xs font-semibold uppercase tracking-widest text-accent transition hover:bg-accent/20 disabled:opacity-40;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center gap-1 border border-border bg-panel px-2 py-1 text-2xs font-semibold uppercase tracking-widest text-zinc-300 transition hover:border-accent hover:text-accent disabled:opacity-40;
+  }
+  .bg-accent-soft {
+    background: rgba(245, 166, 35, 0.12);
+  }
 }
