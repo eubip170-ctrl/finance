@@ -1,7 +1,14 @@
-import yahooFinance from "yahoo-finance2";
+/**
+ * Thin Yahoo Finance client using their public quote endpoint.
+ *
+ * We avoid the npm `yahoo-finance2` package because it ships Deno-only test
+ * modules in the published tree that break Next.js' webpack build. The endpoint
+ * used here is the one consumed by yahoo.com's own widgets — no auth, no key.
+ */
 
-// yahoo-finance2 prints a noisy notice on first use — silence it.
-yahooFinance.suppressNotices(["yahooSurvey"]);
+const QUOTE_URL = "https://query1.finance.yahoo.com/v7/finance/quote";
+const UA =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36";
 
 export type Quote = {
   symbol: string;
@@ -15,48 +22,26 @@ export type Quote = {
 
 export async function getQuotes(symbols: string[]): Promise<Quote[]> {
   if (symbols.length === 0) return [];
-  const res = await yahooFinance.quote(symbols, { return: "array" });
-  return res.map((q) => ({
-    symbol: q.symbol,
-    shortName: q.shortName ?? q.longName,
-    regularMarketPrice: q.regularMarketPrice,
-    regularMarketChangePercent: q.regularMarketChangePercent,
-    regularMarketTime: q.regularMarketTime instanceof Date ? q.regularMarketTime : undefined,
-    currency: q.currency,
-    marketCap: q.marketCap,
-  }));
-}
-
-export type HistoryPoint = {
-  date: Date;
-  open: number | null;
-  high: number | null;
-  low: number | null;
-  close: number | null;
-  volume: number | null;
-};
-
-export async function getHistory(
-  symbol: string,
-  opts: { from: Date; to?: Date; interval?: "1d" | "1wk" | "1mo" } = {
-    from: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000),
-  },
-): Promise<HistoryPoint[]> {
-  const result = await yahooFinance.chart(symbol, {
-    period1: opts.from,
-    period2: opts.to ?? new Date(),
-    interval: opts.interval ?? "1d",
+  const url = `${QUOTE_URL}?symbols=${encodeURIComponent(symbols.join(","))}`;
+  const res = await fetch(url, {
+    headers: { "User-Agent": UA, Accept: "application/json" },
+    next: { revalidate: 60 },
   });
-  return result.quotes.map((q) => ({
-    date: q.date,
-    open: q.open ?? null,
-    high: q.high ?? null,
-    low: q.low ?? null,
-    close: q.close ?? null,
-    volume: q.volume ?? null,
+  if (!res.ok) throw new Error(`yahoo quote failed: ${res.status}`);
+  const json = (await res.json()) as {
+    quoteResponse?: { result?: Array<Record<string, unknown>> };
+  };
+  const rows = json.quoteResponse?.result ?? [];
+  return rows.map((q) => ({
+    symbol: String(q.symbol ?? ""),
+    shortName: (q.shortName as string) ?? (q.longName as string) ?? undefined,
+    regularMarketPrice: q.regularMarketPrice as number | undefined,
+    regularMarketChangePercent: q.regularMarketChangePercent as number | undefined,
+    regularMarketTime:
+      typeof q.regularMarketTime === "number"
+        ? new Date((q.regularMarketTime as number) * 1000)
+        : undefined,
+    currency: q.currency as string | undefined,
+    marketCap: q.marketCap as number | undefined,
   }));
-}
-
-export async function search(query: string, count = 10) {
-  return yahooFinance.search(query, { quotesCount: count, newsCount: 0 });
 }

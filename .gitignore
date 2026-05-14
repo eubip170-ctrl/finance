@@ -69,3 +69,6 @@ backend/uploads/
 
 # Docker 数据
 data/
+
+# TypeScript build info
+tsconfig.tsbuildinfo

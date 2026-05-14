@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
-import { MODELS, completeText } from "@/lib/llm/anthropic";
+import { MODELS, completeText } from "@/lib/llm/openai";
 import { retrieve } from "@/lib/brain/retrieve";
 import { REPORT_PROMPT, SYSTEM_MACRO_ANALYST } from "./prompts";
 

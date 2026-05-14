@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
+import { Nav } from "@/components/Nav";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Event/Macro Studier",
+  title: "NEVIS — Event/Macro Studier",
   description:
     "Investment research tool — Second Brain, market events, anomaly detection, portfolio optimization.",
 };
@@ -10,7 +11,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="min-h-screen bg-bg text-zinc-100 antialiased">{children}</body>
+      <body className="min-h-screen bg-bg text-zinc-100 antialiased">
+        <Nav />
+        {children}
+      </body>
     </html>
   );
 }
