@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { BrainForms } from "./forms";
-import { BrainGraphSection } from "@/components/brain/BrainGraphSection";
 
 export const dynamic = "force-dynamic";
 
@@ -122,8 +121,6 @@ export default async function BrainPage() {
           </ul>
         )}
       </section>
-
-      <BrainGraphSection />
 
       <BrainForms />
     </main>
