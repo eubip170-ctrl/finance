@@ -54,6 +54,14 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
           <h1 className="break-words text-2xl font-semibold sm:text-3xl">
             {event.title}
           </h1>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <Link
+              href={`/events/${id}/graph`}
+              className="rounded-md border border-accent/40 bg-accent/10 px-3 py-1 text-xs text-accent hover:bg-accent/20"
+            >
+              🌐 3D Graph
+            </Link>
+          </div>
           <p className="mt-2 text-sm text-zinc-500">
             {event.event_type} · status{" "}
             <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-xs text-zinc-300">
