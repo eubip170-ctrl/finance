@@ -5,11 +5,26 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        bg: "#0a0a0b",
-        panel: "#111114",
-        border: "#1f1f23",
-        accent: "#d4af37",
-        muted: "#7a7a82",
+        bg: "#000000",
+        panel: "#0a0a0b",
+        border: "#262629",
+        accent: "#f5a623",
+        muted: "#6b6b72",
+        pos: "#3ddc97",
+        neg: "#ff6b6b",
+      },
+      fontFamily: {
+        mono: [
+          "JetBrains Mono",
+          "SFMono-Regular",
+          "Menlo",
+          "Consolas",
+          "Liberation Mono",
+          "monospace",
+        ],
+      },
+      fontSize: {
+        "2xs": "0.6875rem",
       },
     },
   },

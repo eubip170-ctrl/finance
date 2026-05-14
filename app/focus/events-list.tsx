@@ -22,21 +22,21 @@ export type EventCardData = {
 };
 
 const CATEGORY_TONE: Record<Category, string> = {
-  Macro: "text-sky-300 border-sky-900/60 bg-sky-950/40",
-  Geopolitics: "text-rose-300 border-rose-900/60 bg-rose-950/40",
-  Risk: "text-amber-300 border-amber-900/60 bg-amber-950/40",
-  Thematic: "text-violet-300 border-violet-900/60 bg-violet-950/40",
+  Macro: "text-sky-300",
+  Geopolitics: "text-rose-300",
+  Risk: "text-amber-300",
+  Thematic: "text-violet-300",
 };
 
 const REGIME_TEXT: Record<Regime, string> = {
   calm: "text-sky-300",
   stress: "text-amber-300",
-  panic: "text-red-400",
+  panic: "text-neg",
 };
 const REGIME_BAR: Record<Regime, string> = {
   calm: "bg-sky-400",
   stress: "bg-amber-400",
-  panic: "bg-red-400",
+  panic: "bg-neg",
 };
 
 const FILTERS: Array<Category | "All"> = [
@@ -68,116 +68,94 @@ export function FocusEventsList({ events }: { events: EventCardData[] }) {
   );
 
   return (
-    <>
-      <div className="mt-6 flex flex-wrap items-center gap-2">
-        <span className="text-[10px] uppercase tracking-wider text-zinc-500">
-          Filter
-        </span>
-        {FILTERS.map((f) => {
-          const active = f === filter;
-          return (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`rounded border px-2 py-1 text-[11px] uppercase tracking-wider transition ${
-                active
-                  ? "border-accent/60 bg-accent/10 text-accent"
-                  : "border-border bg-panel text-zinc-400 hover:text-zinc-100"
-              }`}
-            >
-              {f} ({counts[f]})
-            </button>
-          );
-        })}
+    <div className="mt-2 border border-border bg-panel">
+      <div className="flex items-center gap-2 border-b border-border bg-black/40 px-2 py-1">
+        <span className="text-2xs font-bold uppercase tracking-widest text-accent">E1</span>
+        <span className="text-2xs font-medium uppercase tracking-widest text-zinc-300">EVENTS</span>
+        <div className="ml-auto flex flex-wrap items-center gap-1">
+          {FILTERS.map((f) => {
+            const active = f === filter;
+            return (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                className={`border px-1.5 py-0.5 text-2xs uppercase tracking-widest transition ${
+                  active
+                    ? "border-accent bg-accent/15 text-accent"
+                    : "border-border text-zinc-500 hover:text-accent"
+                }`}
+              >
+                {f} {counts[f]}
+              </button>
+            );
+          })}
+        </div>
       </div>
-
-      <section className="mt-4">
-        <div className="mb-3 flex items-center gap-3">
-          <h2 className="text-sm font-medium uppercase tracking-wide text-zinc-400">
-            {filter === "All" ? "All events" : `${filter} events`}
-          </h2>
-          <span className="rounded border border-border bg-panel px-2 py-0.5 text-[10px] uppercase tracking-wider text-accent">
-            {filtered.length}
-          </span>
-        </div>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-          {filtered.map((ev) => (
-            <EventCard key={ev.id} ev={ev} />
-          ))}
-        </div>
-      </section>
-    </>
+      <div className="grid grid-cols-1 gap-px bg-border md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+        {filtered.map((ev) => (
+          <EventCard key={ev.id} ev={ev} />
+        ))}
+      </div>
+    </div>
   );
 }
 
 function EventCard({ ev }: { ev: EventCardData }) {
   return (
-    <article className="rounded-lg border border-border bg-panel p-4">
-      <header className="flex items-start justify-between gap-3">
+    <article className="bg-panel px-2 py-2">
+      <header className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <span
-              className={`rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-wider ${
-                CATEGORY_TONE[ev.category]
-              }`}
-            >
-              {ev.category}
-            </span>
-            <span className="text-[10px] uppercase tracking-wider text-zinc-600">
-              importance {ev.importance}/3
-            </span>
+          <div className="flex items-center gap-2 text-2xs uppercase tracking-widest">
+            <span className={CATEGORY_TONE[ev.category]}>{ev.category}</span>
+            <span className="text-zinc-600">IMP {ev.importance}/3</span>
           </div>
-          <h3 className="mt-1 text-base font-medium text-zinc-100">{ev.name}</h3>
+          <h3 className="mt-0.5 truncate text-xs font-medium uppercase text-zinc-100">
+            {ev.name}
+          </h3>
         </div>
         <div className="text-right">
-          <div className="font-mono text-2xl tabular-nums text-accent">{ev.score}</div>
-          <div className={`text-[10px] uppercase tracking-wider ${REGIME_TEXT[ev.regime]}`}>
+          <div className="font-mono text-lg tabular-nums text-accent">{ev.score}</div>
+          <div className={`text-2xs uppercase tracking-widest ${REGIME_TEXT[ev.regime]}`}>
             {ev.regime}
           </div>
         </div>
       </header>
 
-      <p className="mt-2 text-sm text-zinc-400">{ev.description}</p>
+      <p className="mt-1 text-2xs text-zinc-500">{ev.description}</p>
 
-      <div className="mt-3 h-1.5 w-full overflow-hidden rounded bg-zinc-800">
+      <div className="mt-2 h-1 w-full overflow-hidden bg-black">
         <div
           className={`h-full ${REGIME_BAR[ev.regime]}`}
           style={{ width: `${ev.score}%` }}
         />
       </div>
 
-      <div className="mt-3 flex items-center justify-between text-[11px]">
-        <span className="text-zinc-500">
-          momentum:{" "}
+      <div className="mt-1 flex items-center justify-between text-2xs uppercase tracking-widest">
+        <span className="text-zinc-600">
+          MOM{" "}
           <span
             className={
-              ev.momentum > 0
-                ? "text-emerald-400"
-                : ev.momentum < 0
-                  ? "text-red-400"
-                  : "text-zinc-400"
+              ev.momentum > 0 ? "text-pos" : ev.momentum < 0 ? "text-neg" : "text-zinc-400"
             }
           >
-            {ev.momentum > 0 ? "▲ rising" : ev.momentum < 0 ? "▼ falling" : "flat"}
+            {ev.momentum > 0 ? "▲" : ev.momentum < 0 ? "▼" : "●"}
           </span>
         </span>
-        <span className="text-zinc-500">
-          direction: <span className="text-zinc-300">{ev.direction}</span>
-        </span>
+        <span className="text-zinc-600">DIR <span className="text-zinc-300">{ev.direction}</span></span>
       </div>
 
       {ev.spark.length >= 2 && <Sparkline values={ev.spark} regime={ev.regime} />}
 
-      <div className="mt-3 grid grid-cols-3 gap-2 text-[11px]">
+      <div className="mt-2 grid grid-cols-3 gap-1">
         {ev.proxyReturns.map((p) => {
           const v = p.ret1M;
           const positive = v != null && v >= 0;
           return (
-            <div key={p.symbol} className="rounded border border-border bg-bg/40 px-2 py-1.5">
-              <div className="font-mono text-[10px] text-zinc-500">{p.symbol}</div>
+            <div key={p.symbol} className="border border-border bg-black/40 px-1 py-0.5">
+              <div className="font-mono text-2xs uppercase text-zinc-500">{p.symbol}</div>
               <div
-                className={`font-mono tabular-nums ${
-                  v == null ? "text-zinc-600" : positive ? "text-emerald-400" : "text-red-400"
+                className={`font-mono text-2xs tabular-nums ${
+                  v == null ? "text-zinc-700" : positive ? "text-pos" : "text-neg"
                 }`}
               >
                 {v == null ? "—" : `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`}
@@ -187,12 +165,12 @@ function EventCard({ ev }: { ev: EventCardData }) {
         })}
       </div>
 
-      <div className="mt-3 flex justify-end">
+      <div className="mt-2 flex justify-end">
         <Link
           href={`/charts?symbol=${encodeURIComponent(ev.proxies[0] ?? "")}`}
-          className="text-[11px] uppercase tracking-wider text-zinc-500 hover:text-accent"
+          className="text-2xs uppercase tracking-widest text-zinc-600 hover:text-accent"
         >
-          open detail →
+          CHRT →
         </Link>
       </div>
     </article>
@@ -201,7 +179,7 @@ function EventCard({ ev }: { ev: EventCardData }) {
 
 function Sparkline({ values, regime }: { values: number[]; regime: Regime }) {
   const W = 300;
-  const H = 40;
+  const H = 28;
   const min = Math.min(...values);
   const max = Math.max(...values);
   const sx = (i: number) =>
@@ -212,9 +190,9 @@ function Sparkline({ values, regime }: { values: number[]; regime: Regime }) {
     .map((v, i) => `${i === 0 ? "M" : "L"}${sx(i).toFixed(1)},${sy(v).toFixed(1)}`)
     .join(" ");
   const stroke =
-    regime === "panic" ? "#f87171" : regime === "stress" ? "#fbbf24" : "#34d399";
+    regime === "panic" ? "#ff6b6b" : regime === "stress" ? "#fbbf24" : "#3ddc97";
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="mt-2 h-10 w-full" preserveAspectRatio="none">
+    <svg viewBox={`0 0 ${W} ${H}`} className="mt-1 h-7 w-full" preserveAspectRatio="none">
       <path d={d} fill="none" stroke={stroke} strokeWidth={1.2} />
     </svg>
   );
