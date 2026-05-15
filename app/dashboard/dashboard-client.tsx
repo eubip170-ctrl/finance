@@ -52,6 +52,12 @@ export interface DashboardPayload {
   errors: string[];
 }
 
+export interface DashboardMeta {
+  cached: boolean;
+  updatedAt: string | null;
+  source: string;
+}
+
 /* ========= Helpers ========= */
 
 function pctBars(closes: number[], nBack: number): number | null {
@@ -144,7 +150,13 @@ const PALETTE = [
 
 /* ========= Page ========= */
 
-export function DashboardClient({ payload }: { payload: DashboardPayload }) {
+export function DashboardClient({
+  payload,
+  meta,
+}: {
+  payload: DashboardPayload;
+  meta?: DashboardMeta;
+}) {
   const [period, setPeriod] = useState<DashboardPeriod>("1D");
   const [trackerCols, setTrackerCols] = useState<1 | 2 | 3>(2);
   const [visibleGroups, setVisibleGroups] = useState<Set<string>>(
@@ -224,7 +236,7 @@ export function DashboardClient({ payload }: { payload: DashboardPayload }) {
 
   return (
     <main className="px-3 py-3">
-      <PageHeader title="MARKET DASHBOARD" />
+      <PageHeader title="MARKET DASHBOARD" meta={meta} />
 
       <div className="mt-2 flex flex-wrap items-center gap-2 border border-border bg-panel px-2 py-1.5">
         <span className="text-2xs uppercase tracking-widest text-zinc-500">PERIOD</span>
@@ -447,13 +459,23 @@ export function DashboardClient({ payload }: { payload: DashboardPayload }) {
 
 /* ========= Sub-components ========= */
 
-function PageHeader({ title }: { title: string }) {
+function PageHeader({ title, meta }: { title: string; meta?: DashboardMeta }) {
   return (
-    <div className="flex items-center gap-3 border-b border-border pb-1">
+    <div className="flex flex-wrap items-center gap-3 border-b border-border pb-1">
       <span className="rounded-sm bg-accent/15 px-1.5 py-0.5 text-2xs font-bold uppercase tracking-widest text-accent">
         DASH
       </span>
       <h1 className="text-2xs font-bold uppercase tracking-[0.3em] text-zinc-100">{title}</h1>
+      {meta && (
+        <span className="ml-auto text-2xs uppercase tracking-widest text-zinc-600">
+          {meta.cached ? "CACHE" : "LIVE"}
+          {meta.updatedAt && (
+            <span className="ml-2 text-zinc-700">
+              · {new Date(meta.updatedAt).toUTCString().slice(5, 22)}
+            </span>
+          )}
+        </span>
+      )}
     </div>
   );
 }
@@ -853,7 +875,6 @@ function buildTracks(
   for (const t of group.tickers) {
     const s = series[t.t];
     if (!s) continue;
-    // Align by length-from-end (assumes EOD calendars match).
     const sStart = s.closes.length - sliceLen;
     if (sStart < 0) continue;
     const tStart = s.closes[sStart];
@@ -892,7 +913,6 @@ function RelativePerfTracker({
     [group, series, period],
   );
 
-  // Default: show top 5 best + bottom 3 worst when crowded.
   const initialHidden = useMemo(() => {
     if (defaultShowAll || tracks.length <= 8) return new Set<string>();
     const sorted = [...tracks].sort((a, b) => b.final - a.final);
@@ -937,7 +957,6 @@ function RelativePerfTracker({
     setHidden(new Set(tracks.map((x) => x.t)));
   }
 
-  // Stable color per ticker (independent of sort).
   const colorMap = useMemo(() => {
     const m = new Map<string, string>();
     tracks.forEach((t, i) => m.set(t.t, PALETTE[i % PALETTE.length]));
@@ -1058,7 +1077,6 @@ function TrackerChart({
   const innerH = H - padT - padB;
 
   const all = tracks.flatMap((t) => t.values.filter((v) => Number.isFinite(v)));
-  // Always include 100 as a reference line in domain.
   const yMin = tracks.length > 0 ? Math.min(...all, 100) : 80;
   const yMax = tracks.length > 0 ? Math.max(...all, 100) : 120;
   const span = yMax - yMin || 1;
@@ -1096,12 +1114,10 @@ function TrackerChart({
           onMouseMove={handleMove}
           onMouseLeave={() => setHoverIdx(null)}
         >
-          {/* Grid */}
           <line x1={padL} x2={W - padR} y1={yOf(100)} y2={yOf(100)} stroke="#3a3a3f" strokeDasharray="2 3" />
           <line x1={padL} x2={W - padR} y1={padT} y2={padT} stroke="#262629" />
           <line x1={padL} x2={W - padR} y1={padT + innerH} y2={padT + innerH} stroke="#262629" />
           <line x1={padL} x2={padL} y1={padT} y2={padT + innerH} stroke="#262629" />
-          {/* Y labels */}
           <text x={padL - 4} y={yOf(yMax) + 3} fontSize={8} fill="#6b6b72" textAnchor="end">
             {yMax.toFixed(0)}
           </text>
@@ -1111,7 +1127,6 @@ function TrackerChart({
           <text x={padL - 4} y={yOf(yMin) + 3} fontSize={8} fill="#6b6b72" textAnchor="end">
             {yMin.toFixed(0)}
           </text>
-          {/* X labels */}
           {xTicks.map((i) => (
             <text key={i} x={xOf(i)} y={H - 4} fontSize={8} fill="#6b6b72" textAnchor="middle">
               {fmtDate(dates[i])}
@@ -1121,7 +1136,6 @@ function TrackerChart({
             vs {benchmark}
           </text>
 
-          {/* Lines */}
           {tracks.map((tr) => {
             const stroke = colorMap.get(tr.t) ?? "#f5a623";
             let path = "";
@@ -1135,7 +1149,6 @@ function TrackerChart({
             return <path key={tr.t} d={path} fill="none" stroke={stroke} strokeWidth={1.3} />;
           })}
 
-          {/* Crosshair */}
           {hoverIdx != null && (
             <>
               <line
@@ -1165,7 +1178,6 @@ function TrackerChart({
           )}
         </svg>
 
-        {/* Hover tooltip — floating panel */}
         {hoverIdx != null && tracks.length > 0 && (
           <div
             className="pointer-events-none absolute top-1 left-10 z-10 max-h-[80%] overflow-y-auto border border-border bg-black/90 px-2 py-1 text-2xs font-mono"
@@ -1201,7 +1213,6 @@ function TrackerChart({
         )}
       </div>
 
-      {/* Legend — click ticker to toggle, double-click to "show only" */}
       <ul
         className="ml-1 flex w-32 shrink-0 flex-col gap-px overflow-y-auto border-l border-border"
         style={{ maxHeight: H }}
