@@ -34,7 +34,7 @@ const PERIOD_BARS: Record<DashboardPeriod, number> = {
   "1M": 21,
   "3M": 63,
   "6M": 126,
-  YTD: 0, // sentinel
+  YTD: 0,
   "1Y": 252,
   "3Y": 756,
   "5Y": 1260,
@@ -87,6 +87,23 @@ function periodReturn(
   return pctBars(s.closes, PERIOD_BARS[p]);
 }
 
+function periodStartBars(
+  s: { dates: number[]; closes: number[] } | undefined,
+  p: DashboardPeriod,
+): number {
+  if (!s) return 0;
+  if (p === "YTD") {
+    const year = new Date().getUTCFullYear();
+    for (let i = 0; i < s.dates.length; i++) {
+      if (new Date(s.dates[i] * 1000).getUTCFullYear() === year) {
+        return s.dates.length - 1 - i;
+      }
+    }
+    return 0;
+  }
+  return PERIOD_BARS[p];
+}
+
 function fmtPct(v: number | null | undefined) {
   if (v == null || !Number.isFinite(v)) return "—";
   return `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`;
@@ -97,6 +114,33 @@ function fmtPrice(v: number) {
   if (Math.abs(v) >= 10) return v.toFixed(2);
   return v.toFixed(4);
 }
+
+const PALETTE = [
+  "#f5a623",
+  "#3ddc97",
+  "#5aa8ff",
+  "#e83e8c",
+  "#9b6dff",
+  "#f7d046",
+  "#6dd3ff",
+  "#ff7a59",
+  "#26C6DA",
+  "#AB47BC",
+  "#FFB74D",
+  "#42A5F5",
+  "#66BB6A",
+  "#EC407A",
+  "#FF7043",
+  "#7E57C2",
+  "#26A69A",
+  "#FFA726",
+  "#5C6BC0",
+  "#D4E157",
+  "#8E5CF7",
+  "#00BCD4",
+  "#A1887F",
+  "#78909C",
+];
 
 /* ========= Page ========= */
 
@@ -110,7 +154,6 @@ export function DashboardClient({ payload }: { payload: DashboardPayload }) {
 
   const { series, groups, pulse, errors } = payload;
 
-  // Build flat ticker info for matrix / movers.
   const allTickerInfo = useMemo(() => {
     const map = new Map<string, { name: string; group: string }>();
     for (const g of groups) {
@@ -121,7 +164,6 @@ export function DashboardClient({ payload }: { payload: DashboardPayload }) {
     return map;
   }, [groups]);
 
-  // Pulse strip cards.
   const pulseCards = useMemo(
     () =>
       pulse.map((t) => {
@@ -139,7 +181,6 @@ export function DashboardClient({ payload }: { payload: DashboardPayload }) {
     [pulse, series, period, allTickerInfo],
   );
 
-  // Performance matrix: all ticker × all periods.
   const matrixRows = useMemo(
     () =>
       Array.from(allTickerInfo.entries()).map(([t, info]) => {
@@ -154,7 +195,6 @@ export function DashboardClient({ payload }: { payload: DashboardPayload }) {
     [allTickerInfo, series],
   );
 
-  // Top movers — sorted by selected period.
   const movers = useMemo(() => {
     const valid = matrixRows.filter((r) => r.ret[period] != null);
     valid.sort((a, b) => (b.ret[period] ?? 0) - (a.ret[period] ?? 0));
@@ -164,7 +204,6 @@ export function DashboardClient({ payload }: { payload: DashboardPayload }) {
     };
   }, [matrixRows, period]);
 
-  // Sector heatmap — sectors group only (for the dedicated heatmap).
   const sectorsGroup = useMemo(() => groups.find((g) => g.key === "sectors"), [groups]);
 
   function toggleGroup(k: string) {
@@ -181,13 +220,12 @@ export function DashboardClient({ payload }: { payload: DashboardPayload }) {
     );
   }
 
-  const trackerHeight = trackerCols === 1 ? 220 : trackerCols === 2 ? 160 : 130;
+  const trackerHeight = trackerCols === 1 ? 260 : trackerCols === 2 ? 200 : 160;
 
   return (
     <main className="px-3 py-3">
       <PageHeader title="MARKET DASHBOARD" />
 
-      {/* Global period selector */}
       <div className="mt-2 flex flex-wrap items-center gap-2 border border-border bg-panel px-2 py-1.5">
         <span className="text-2xs uppercase tracking-widest text-zinc-500">PERIOD</span>
         {PERIOD_KEYS.map((p) => (
@@ -210,7 +248,6 @@ export function DashboardClient({ payload }: { payload: DashboardPayload }) {
         )}
       </div>
 
-      {/* Cross-Asset Pulse */}
       <Section code="P1" title="CROSS-ASSET PULSE">
         <div className="grid grid-cols-2 gap-1 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">
           {pulseCards.map((c) => (
@@ -219,7 +256,6 @@ export function DashboardClient({ payload }: { payload: DashboardPayload }) {
         </div>
       </Section>
 
-      {/* Market context strip — link to Focus + Brain */}
       <Section code="MC" title="MARKET CONTEXT">
         <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
           <ContextChip
@@ -240,7 +276,6 @@ export function DashboardClient({ payload }: { payload: DashboardPayload }) {
         </div>
       </Section>
 
-      {/* Top Movers · period */}
       <Section code="M1" title={`TOP MOVERS · ${period}`}>
         <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
           <MoversList title="LEADERS" rows={movers.best} period={period} tone="pos" />
@@ -248,12 +283,10 @@ export function DashboardClient({ payload }: { payload: DashboardPayload }) {
         </div>
       </Section>
 
-      {/* Performance Matrix */}
       <Section code="X1" title="PERFORMANCE MATRIX">
         <PerfMatrix rows={matrixRows} highlight={period} />
       </Section>
 
-      {/* Sector heatmap (selected period) */}
       {sectorsGroup && (
         <Section code="H1" title={`SECTOR HEATMAP · ${period}`}>
           <SectorHeatmap
@@ -264,7 +297,6 @@ export function DashboardClient({ payload }: { payload: DashboardPayload }) {
         </Section>
       )}
 
-      {/* Sector returns tables */}
       <Section code="L1" title="SECTOR RETURNS TABLES">
         <p className="text-2xs uppercase tracking-widest text-zinc-500 mb-2">
           Ranked tables per group, sorted on the selected period.
@@ -276,7 +308,6 @@ export function DashboardClient({ payload }: { payload: DashboardPayload }) {
         </div>
       </Section>
 
-      {/* Relative Performance Trackers */}
       <Section
         code="T1"
         title="RELATIVE PERFORMANCE TRACKERS"
@@ -370,7 +401,7 @@ export function DashboardClient({ payload }: { payload: DashboardPayload }) {
               .filter((g) => visibleGroups.has(g.key))
               .map((g) => (
                 <RelativePerfTracker
-                  key={g.key}
+                  key={`${g.key}-${period}`}
                   group={g}
                   series={series}
                   period={period}
@@ -382,7 +413,6 @@ export function DashboardClient({ payload }: { payload: DashboardPayload }) {
         )}
       </Section>
 
-      {/* Expand modal */}
       {expanded && (
         <div
           className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 backdrop-blur-sm p-3"
@@ -401,10 +431,12 @@ export function DashboardClient({ payload }: { payload: DashboardPayload }) {
               </button>
             </div>
             <RelativePerfTracker
+              key={`expanded-${expanded}-${period}`}
               group={groups.find((g) => g.key === expanded)!}
               series={series}
               period={period}
-              height={520}
+              height={560}
+              defaultShowAll
             />
           </div>
         </div>
@@ -789,69 +821,137 @@ function Td({ v, bold = false }: { v: number | null; bold?: boolean }) {
 
 /* ========= Relative Performance Tracker ========= */
 
+type TrackerSort = "perf" | "ticker" | "name";
+
+interface TrackerLine {
+  t: string;
+  n: string;
+  values: number[];
+  final: number;
+}
+
+function buildTracks(
+  group: { tickers: Array<{ t: string; n: string }>; benchmark: string },
+  series: Record<string, { dates: number[]; closes: number[] }>,
+  period: DashboardPeriod,
+): { tracks: TrackerLine[]; dates: number[] } {
+  const bench = series[group.benchmark];
+  if (!bench) return { tracks: [], dates: [] };
+  const bars = periodStartBars(bench, period);
+  const totalLen = bench.closes.length;
+  if (bars <= 0 || totalLen < 2) return { tracks: [], dates: [] };
+
+  const startIdx = Math.max(0, totalLen - 1 - bars);
+  const sliceLen = totalLen - startIdx;
+  const dates = bench.dates.slice(startIdx);
+
+  const benchStart = bench.closes[startIdx];
+  if (!benchStart) return { tracks: [], dates: [] };
+  const benchSlice = bench.closes.slice(startIdx);
+
+  const out: TrackerLine[] = [];
+  for (const t of group.tickers) {
+    const s = series[t.t];
+    if (!s) continue;
+    // Align by length-from-end (assumes EOD calendars match).
+    const sStart = s.closes.length - sliceLen;
+    if (sStart < 0) continue;
+    const tStart = s.closes[sStart];
+    if (!tStart) continue;
+    const values: number[] = new Array(sliceLen).fill(NaN);
+    for (let i = 0; i < sliceLen; i++) {
+      const ti = s.closes[sStart + i];
+      const bi = benchSlice[i];
+      if (!ti || !bi) continue;
+      values[i] = (ti / tStart) / (bi / benchStart) * 100;
+    }
+    const final = values[values.length - 1];
+    if (!Number.isFinite(final)) continue;
+    out.push({ t: t.t, n: t.n, values, final });
+  }
+  return { tracks: out, dates };
+}
+
 function RelativePerfTracker({
   group,
   series,
   period,
   height,
   onExpand,
+  defaultShowAll = false,
 }: {
   group: { key: string; label: string; benchmark: string; tickers: Array<{ t: string; n: string }> };
   series: Record<string, { dates: number[]; closes: number[] }>;
   period: DashboardPeriod;
   height: number;
   onExpand?: () => void;
+  defaultShowAll?: boolean;
 }) {
-  const bench = series[group.benchmark];
-  const bars = period === "YTD"
-    ? (() => {
-        if (!bench) return 0;
-        const year = new Date().getUTCFullYear();
-        for (let i = 0; i < bench.dates.length; i++) {
-          if (new Date(bench.dates[i] * 1000).getUTCFullYear() === year) {
-            return bench.dates.length - 1 - i;
-          }
-        }
-        return 0;
-      })()
-    : PERIOD_BARS[period];
+  const { tracks, dates } = useMemo(
+    () => buildTracks(group, series, period),
+    [group, series, period],
+  );
 
-  // For each ticker, build the rebased ratio series ticker/benchmark over the
-  // visible period, normalised to 100 at the start.
-  const tracks = useMemo(() => {
-    if (!bench) return [];
-    const out: Array<{ t: string; n: string; values: number[]; final: number }> = [];
-    for (const t of group.tickers) {
-      const s = series[t.t];
-      if (!s) continue;
-      const n = Math.min(s.closes.length, bench.closes.length);
-      const start = Math.max(0, n - 1 - bars);
-      const benchStart = bench.closes[bench.closes.length - n + start] ?? bench.closes[start];
-      const tStart = s.closes[s.closes.length - n + start] ?? s.closes[start];
-      if (!benchStart || !tStart) continue;
-      const values: number[] = [];
-      for (let i = start; i < n; i++) {
-        const b = bench.closes[bench.closes.length - n + i];
-        const ti = s.closes[s.closes.length - n + i];
-        if (!b || !ti) {
-          values.push(NaN);
-          continue;
-        }
-        const ratio = (ti / tStart) / (b / benchStart);
-        values.push(ratio * 100);
-      }
-      const final = values[values.length - 1] ?? 100;
-      out.push({ t: t.t, n: t.n, values, final });
-    }
-    out.sort((a, b) => b.final - a.final);
+  // Default: show top 5 best + bottom 3 worst when crowded.
+  const initialHidden = useMemo(() => {
+    if (defaultShowAll || tracks.length <= 8) return new Set<string>();
+    const sorted = [...tracks].sort((a, b) => b.final - a.final);
+    const visible = new Set<string>([
+      ...sorted.slice(0, 5).map((x) => x.t),
+      ...sorted.slice(-3).map((x) => x.t),
+    ]);
+    return new Set(tracks.filter((x) => !visible.has(x.t)).map((x) => x.t));
+  }, [tracks, defaultShowAll]);
+
+  const [hidden, setHidden] = useState<Set<string>>(initialHidden);
+  const [sort, setSort] = useState<TrackerSort>("perf");
+
+  const visibleTracks = useMemo(
+    () => tracks.filter((t) => !hidden.has(t.t)),
+    [tracks, hidden],
+  );
+
+  const legendSorted = useMemo(() => {
+    const out = [...tracks];
+    if (sort === "perf") out.sort((a, b) => b.final - a.final);
+    else if (sort === "ticker") out.sort((a, b) => a.t.localeCompare(b.t));
+    else out.sort((a, b) => a.n.localeCompare(b.n));
     return out;
-  }, [bench, group.tickers, series, bars]);
+  }, [tracks, sort]);
 
-  if (!bench || tracks.length === 0) {
+  function toggle(t: string) {
+    setHidden((prev) => {
+      const next = new Set(prev);
+      if (next.has(t)) next.delete(t);
+      else next.add(t);
+      return next;
+    });
+  }
+  function showOnly(t: string) {
+    setHidden(new Set(tracks.filter((x) => x.t !== t).map((x) => x.t)));
+  }
+  function showAll() {
+    setHidden(new Set());
+  }
+  function hideAll() {
+    setHidden(new Set(tracks.map((x) => x.t)));
+  }
+
+  // Stable color per ticker (independent of sort).
+  const colorMap = useMemo(() => {
+    const m = new Map<string, string>();
+    tracks.forEach((t, i) => m.set(t.t, PALETTE[i % PALETTE.length]));
+    return m;
+  }, [tracks]);
+
+  if (tracks.length === 0) {
     return (
       <div className="border border-border bg-panel p-2">
-        <div className="text-2xs font-bold uppercase tracking-widest text-zinc-300">
-          {group.label}
+        <div className="flex items-center justify-between border-b border-border pb-1">
+          <span className="text-2xs font-bold uppercase tracking-widest text-zinc-300">
+            {group.label}
+          </span>
+          <span className="text-2xs text-zinc-500">vs {group.benchmark}</span>
         </div>
         <p className="mt-2 text-2xs uppercase text-zinc-600">no data</p>
       </div>
@@ -860,109 +960,274 @@ function RelativePerfTracker({
 
   return (
     <div className="flex flex-col border border-border bg-panel">
-      <div className="flex items-center justify-between border-b border-border px-2 py-1">
+      <div className="flex flex-wrap items-center gap-2 border-b border-border px-2 py-1">
         <span className="text-2xs font-bold uppercase tracking-widest text-zinc-200">
           {group.label}
         </span>
         <span className="text-2xs text-zinc-500">
           vs {group.benchmark} · {period}
         </span>
-        {onExpand && (
+        <span className="text-2xs text-zinc-600">
+          {visibleTracks.length}/{tracks.length}
+        </span>
+        <div className="ml-auto flex items-center gap-1">
+          <span className="text-2xs uppercase tracking-widest text-zinc-600">SORT</span>
+          {(["perf", "ticker", "name"] as TrackerSort[]).map((k) => (
+            <button
+              key={k}
+              onClick={() => setSort(k)}
+              className={`border px-1.5 py-0.5 text-2xs uppercase tracking-widest transition ${
+                sort === k
+                  ? "border-accent bg-accent/15 text-accent"
+                  : "border-border text-zinc-500 hover:text-accent"
+              }`}
+            >
+              {k}
+            </button>
+          ))}
           <button
-            onClick={onExpand}
-            className="ml-2 text-2xs uppercase tracking-widest text-zinc-500 hover:text-accent"
-            title="Expand"
+            onClick={hidden.size > 0 ? showAll : hideAll}
+            className="border border-border bg-panel px-1.5 py-0.5 text-2xs uppercase tracking-widest text-zinc-400 hover:border-accent hover:text-accent"
+            title={hidden.size > 0 ? "Show all" : "Hide all"}
           >
-            ⛶
+            {hidden.size > 0 ? "ALL" : "NONE"}
           </button>
-        )}
+          {onExpand && (
+            <button
+              onClick={onExpand}
+              className="border border-border bg-panel px-1.5 py-0.5 text-2xs uppercase tracking-widest text-zinc-400 hover:border-accent hover:text-accent"
+              title="Expand"
+            >
+              ⛶
+            </button>
+          )}
+        </div>
       </div>
-      <TrackerChart tracks={tracks} height={height} benchmark={group.benchmark} />
+      <TrackerChart
+        tracks={visibleTracks}
+        allLegend={legendSorted}
+        hidden={hidden}
+        colorMap={colorMap}
+        dates={dates}
+        height={height}
+        benchmark={group.benchmark}
+        onToggle={toggle}
+        onShowOnly={showOnly}
+      />
     </div>
   );
 }
 
 function TrackerChart({
   tracks,
+  allLegend,
+  hidden,
+  colorMap,
+  dates,
   height,
   benchmark,
+  onToggle,
+  onShowOnly,
 }: {
-  tracks: Array<{ t: string; n: string; values: number[]; final: number }>;
+  tracks: TrackerLine[];
+  allLegend: TrackerLine[];
+  hidden: Set<string>;
+  colorMap: Map<string, string>;
+  dates: number[];
   height: number;
   benchmark: string;
+  onToggle: (t: string) => void;
+  onShowOnly: (t: string) => void;
 }) {
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+
+  const len = dates.length;
+  if (len < 2) {
+    return (
+      <div className="px-2 py-3 text-2xs uppercase text-zinc-600">not enough data</div>
+    );
+  }
+
   const W = 600;
   const H = height;
-  // Color palette — line per ticker. Stable but rotating.
-  const PALETTE = [
-    "#f5a623",
-    "#3ddc97",
-    "#5aa8ff",
-    "#e83e8c",
-    "#9b6dff",
-    "#f7d046",
-    "#6dd3ff",
-    "#ff7a59",
-    "#26C6DA",
-    "#AB47BC",
-    "#FFB74D",
-  ];
-  const len = tracks[0]?.values.length ?? 0;
-  if (len < 2) return <div className="px-2 py-3 text-2xs uppercase text-zinc-600">not enough data</div>;
-  const all = tracks.flatMap((t) => t.values.filter((v) => Number.isFinite(v)));
-  const yMin = Math.min(...all, 100);
-  const yMax = Math.max(...all, 100);
-  const span = yMax - yMin || 1;
   const padL = 38;
   const padR = 6;
   const padT = 6;
-  const padB = 16;
+  const padB = 18;
   const innerW = W - padL - padR;
   const innerH = H - padT - padB;
+
+  const all = tracks.flatMap((t) => t.values.filter((v) => Number.isFinite(v)));
+  // Always include 100 as a reference line in domain.
+  const yMin = tracks.length > 0 ? Math.min(...all, 100) : 80;
+  const yMax = tracks.length > 0 ? Math.max(...all, 100) : 120;
+  const span = yMax - yMin || 1;
+
   const xOf = (i: number) => padL + (i / (len - 1)) * innerW;
   const yOf = (v: number) => padT + ((yMax - v) / span) * innerH;
 
+  function fmtDate(t: number) {
+    const d = new Date(t * 1000);
+    return `${String(d.getUTCMonth() + 1).padStart(2, "0")}/${String(d.getUTCDate()).padStart(2, "0")}`;
+  }
+
+  function handleMove(e: React.MouseEvent<SVGSVGElement>) {
+    const rect = (e.currentTarget as SVGSVGElement).getBoundingClientRect();
+    const relX = ((e.clientX - rect.left) / rect.width) * W;
+    if (relX < padL || relX > W - padR) {
+      setHoverIdx(null);
+      return;
+    }
+    const ratio = (relX - padL) / innerW;
+    const idx = Math.max(0, Math.min(len - 1, Math.round(ratio * (len - 1))));
+    setHoverIdx(idx);
+  }
+
+  const xTicks = [0, Math.floor(len / 2), len - 1];
+
   return (
     <div className="flex">
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" preserveAspectRatio="none" style={{ height: H }}>
-        {/* Grid lines */}
-        <line x1={padL} x2={W - padR} y1={yOf(100)} y2={yOf(100)} stroke="#3a3a3f" strokeDasharray="2 3" />
-        <line x1={padL} x2={W - padR} y1={padT} y2={padT} stroke="#262629" />
-        <line x1={padL} x2={W - padR} y1={padT + innerH} y2={padT + innerH} stroke="#262629" />
-        <line x1={padL} x2={padL} y1={padT} y2={padT + innerH} stroke="#262629" />
-        <text x={padL - 4} y={yOf(yMax) + 3} fontSize={8} fill="#6b6b72" textAnchor="end">
-          {yMax.toFixed(0)}
-        </text>
-        <text x={padL - 4} y={yOf(100) + 3} fontSize={8} fill="#6b6b72" textAnchor="end">
-          100
-        </text>
-        <text x={padL - 4} y={yOf(yMin) + 3} fontSize={8} fill="#6b6b72" textAnchor="end">
-          {yMin.toFixed(0)}
-        </text>
-        <text x={W - padR} y={H - 4} fontSize={8} fill="#6b6b72" textAnchor="end">
-          vs {benchmark}
-        </text>
-        {tracks.map((tr, idx) => {
-          const stroke = PALETTE[idx % PALETTE.length];
-          let path = "";
-          let started = false;
-          for (let i = 0; i < tr.values.length; i++) {
-            const v = tr.values[i];
-            if (!Number.isFinite(v)) continue;
-            path += `${started ? "L" : "M"}${xOf(i).toFixed(1)},${yOf(v).toFixed(1)} `;
-            started = true;
-          }
-          return <path key={tr.t} d={path} fill="none" stroke={stroke} strokeWidth={1.2} />;
-        })}
-      </svg>
-      <ul className="ml-1 flex w-28 shrink-0 flex-col gap-px overflow-y-auto border-l border-border" style={{ maxHeight: H }}>
-        {tracks.map((tr, idx) => {
-          const stroke = PALETTE[idx % PALETTE.length];
+      <div className="relative flex-1" style={{ minWidth: 0 }}>
+        <svg
+          viewBox={`0 0 ${W} ${H}`}
+          className="block w-full"
+          preserveAspectRatio="none"
+          style={{ height: H, cursor: "crosshair" }}
+          onMouseMove={handleMove}
+          onMouseLeave={() => setHoverIdx(null)}
+        >
+          {/* Grid */}
+          <line x1={padL} x2={W - padR} y1={yOf(100)} y2={yOf(100)} stroke="#3a3a3f" strokeDasharray="2 3" />
+          <line x1={padL} x2={W - padR} y1={padT} y2={padT} stroke="#262629" />
+          <line x1={padL} x2={W - padR} y1={padT + innerH} y2={padT + innerH} stroke="#262629" />
+          <line x1={padL} x2={padL} y1={padT} y2={padT + innerH} stroke="#262629" />
+          {/* Y labels */}
+          <text x={padL - 4} y={yOf(yMax) + 3} fontSize={8} fill="#6b6b72" textAnchor="end">
+            {yMax.toFixed(0)}
+          </text>
+          <text x={padL - 4} y={yOf(100) + 3} fontSize={8} fill="#f5a623" textAnchor="end">
+            100
+          </text>
+          <text x={padL - 4} y={yOf(yMin) + 3} fontSize={8} fill="#6b6b72" textAnchor="end">
+            {yMin.toFixed(0)}
+          </text>
+          {/* X labels */}
+          {xTicks.map((i) => (
+            <text key={i} x={xOf(i)} y={H - 4} fontSize={8} fill="#6b6b72" textAnchor="middle">
+              {fmtDate(dates[i])}
+            </text>
+          ))}
+          <text x={W - padR - 2} y={padT + 9} fontSize={8} fill="#6b6b72" textAnchor="end">
+            vs {benchmark}
+          </text>
+
+          {/* Lines */}
+          {tracks.map((tr) => {
+            const stroke = colorMap.get(tr.t) ?? "#f5a623";
+            let path = "";
+            let started = false;
+            for (let i = 0; i < tr.values.length; i++) {
+              const v = tr.values[i];
+              if (!Number.isFinite(v)) continue;
+              path += `${started ? "L" : "M"}${xOf(i).toFixed(1)},${yOf(v).toFixed(1)} `;
+              started = true;
+            }
+            return <path key={tr.t} d={path} fill="none" stroke={stroke} strokeWidth={1.3} />;
+          })}
+
+          {/* Crosshair */}
+          {hoverIdx != null && (
+            <>
+              <line
+                x1={xOf(hoverIdx)}
+                x2={xOf(hoverIdx)}
+                y1={padT}
+                y2={padT + innerH}
+                stroke="#6b6b72"
+                strokeDasharray="2 3"
+                strokeWidth={1}
+              />
+              {tracks.map((tr) => {
+                const v = tr.values[hoverIdx];
+                if (!Number.isFinite(v)) return null;
+                const color = colorMap.get(tr.t) ?? "#f5a623";
+                return (
+                  <circle
+                    key={`hov-${tr.t}`}
+                    cx={xOf(hoverIdx)}
+                    cy={yOf(v)}
+                    r={2.5}
+                    fill={color}
+                  />
+                );
+              })}
+            </>
+          )}
+        </svg>
+
+        {/* Hover tooltip — floating panel */}
+        {hoverIdx != null && tracks.length > 0 && (
+          <div
+            className="pointer-events-none absolute top-1 left-10 z-10 max-h-[80%] overflow-y-auto border border-border bg-black/90 px-2 py-1 text-2xs font-mono"
+            style={{ minWidth: 130 }}
+          >
+            <div className="mb-1 border-b border-border pb-0.5 text-zinc-500">
+              {fmtDate(dates[hoverIdx])}
+            </div>
+            {tracks
+              .map((tr) => ({ tr, v: tr.values[hoverIdx] }))
+              .filter((x) => Number.isFinite(x.v))
+              .sort((a, b) => (b.v as number) - (a.v as number))
+              .slice(0, 12)
+              .map(({ tr, v }) => {
+                const color = colorMap.get(tr.t) ?? "#f5a623";
+                const delta = (v as number) - 100;
+                const positive = delta >= 0;
+                return (
+                  <div key={`tt-${tr.t}`} className="flex items-center gap-1">
+                    <span
+                      className="inline-block h-1.5 w-3 shrink-0"
+                      style={{ background: color }}
+                    />
+                    <span className="uppercase text-accent">{tr.t}</span>
+                    <span className={`ml-auto tabular-nums ${positive ? "text-pos" : "text-neg"}`}>
+                      {positive ? "+" : ""}
+                      {delta.toFixed(1)}
+                    </span>
+                  </div>
+                );
+              })}
+          </div>
+        )}
+      </div>
+
+      {/* Legend — click ticker to toggle, double-click to "show only" */}
+      <ul
+        className="ml-1 flex w-32 shrink-0 flex-col gap-px overflow-y-auto border-l border-border"
+        style={{ maxHeight: H }}
+      >
+        {allLegend.map((tr) => {
+          const stroke = colorMap.get(tr.t) ?? "#f5a623";
+          const isHidden = hidden.has(tr.t);
           const diff = tr.final - 100;
           const positive = diff >= 0;
           return (
-            <li key={tr.t} className="flex items-center gap-1 px-1 py-0.5 text-2xs">
-              <span className="inline-block h-1.5 w-3 shrink-0" style={{ background: stroke }} />
+            <li
+              key={`lg-${tr.t}`}
+              className={`flex cursor-pointer items-center gap-1 px-1 py-0.5 text-2xs ${
+                isHidden ? "opacity-40" : ""
+              } hover:bg-black/60`}
+              onClick={() => onToggle(tr.t)}
+              onDoubleClick={(e) => {
+                e.preventDefault();
+                onShowOnly(tr.t);
+              }}
+              title={`${tr.n} · click toggle · double-click solo`}
+            >
+              <span
+                className="inline-block h-1.5 w-3 shrink-0"
+                style={{ background: stroke }}
+              />
               <span className="font-mono uppercase text-accent">{tr.t}</span>
               <span className={`ml-auto font-mono tabular-nums ${positive ? "text-pos" : "text-neg"}`}>
                 {positive ? "+" : ""}
