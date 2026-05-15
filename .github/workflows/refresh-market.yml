@@ -1,0 +1,42 @@
+name: refresh-market-cache
+
+on:
+  schedule:
+    # 22:30 UTC daily — after US EOD (≈21:00 UTC) and before Asia open. The
+    # cron worker hits the /api/cron/refresh-market endpoint on the live
+    # deployment which pulls fresh OHLCV from MarketStack v2 and writes
+    # the dashboard + focus payloads to Supabase `market_cache`.
+    - cron: '30 22 * * *'
+  workflow_dispatch:
+    # Allow manual trigger from the Actions tab — useful after a deploy.
+    inputs:
+      reason:
+        description: 'Why are you forcing a refresh?'
+        required: false
+        default: 'manual'
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: POST /api/cron/refresh-market
+        env:
+          ENDPOINT: ${{ secrets.MARKET_REFRESH_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$ENDPOINT" ] || [ -z "$CRON_SECRET" ]; then
+            echo "::error::MARKET_REFRESH_URL or CRON_SECRET secret is missing"
+            exit 1
+          fi
+          echo "Refreshing $ENDPOINT"
+          HTTP_STATUS=$(curl -sS -o response.json -w "%{http_code}" \
+            -X POST "$ENDPOINT" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -H "Content-Type: application/json" \
+            --max-time 300)
+          echo "HTTP $HTTP_STATUS"
+          cat response.json
+          if [ "$HTTP_STATUS" != "200" ] && [ "$HTTP_STATUS" != "207" ]; then
+            exit 1
+          fi
