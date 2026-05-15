@@ -8,6 +8,13 @@ export function StatusBar() {
       <span className="text-zinc-500">env: prod</span>
       <span className="text-zinc-500">rss: 30m</span>
       <span className="text-zinc-500">studier: 4h</span>
+      <a
+        href="/health"
+        className="text-zinc-500 transition hover:text-accent"
+        title="System diagnostics"
+      >
+        health
+      </a>
       <span className="ml-auto text-zinc-600">NEVIS · macro terminal</span>
     </footer>
   );

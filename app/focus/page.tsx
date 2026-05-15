@@ -28,10 +28,19 @@ export default async function FocusPage() {
   );
 
   const haveTimeline = data.timeline.filter((v): v is number => v != null).length >= 10;
+  const allEmpty = data.events.every((e) => e.score === 0 && e.proxyReturns.every((r) => r.ret1M == null));
 
   return (
     <main className="px-3 py-3">
       <PageHeader code="FOCUS" title="MACRO FOCUS" cached={cached} updatedAt={updatedAt} />
+
+      {allEmpty && (
+        <div className="mt-2 border border-neg/60 bg-neg/10 px-3 py-2 text-2xs uppercase tracking-widest text-neg">
+          <span className="text-neg">⚠</span> NO MARKET DATA · every focus proxy returned
+          empty. Check <span className="text-accent">MARKETSTACK_API_KEY</span> on Vercel and
+          inspect <a className="text-accent underline" href="/health">/health</a>.
+        </div>
+      )}
 
       <div className="mt-2 grid grid-cols-1 gap-2 xl:grid-cols-4">
         <Panel code="P0" title="PRESSURE">
