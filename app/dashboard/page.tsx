@@ -1,11 +1,12 @@
 import { DashboardClient, type DashboardPayload } from "./dashboard-client";
+import { NewsWire } from "./news-wire";
 import { cachedOr } from "@/lib/cache/market-cache";
 import { computeDashboardPayload } from "@/lib/dashboard/payload";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-const TTL_SEC = 24 * 60 * 60; // 1 day — GitHub Action refreshes ahead of this.
+const TTL_SEC = 24 * 60 * 60;
 
 export default async function DashboardPage() {
   const { data, cached, updatedAt } = await cachedOr<DashboardPayload>(
@@ -14,8 +15,6 @@ export default async function DashboardPage() {
     () => computeDashboardPayload(),
   );
 
-  // Empty-data banner: when every ticker is missing the env is most likely
-  // misconfigured (MARKETSTACK_API_KEY) or out of quota.
   const totalTickers = data.groups.reduce((n, g) => n + g.tickers.length, 0) + data.pulse.length;
   const dataMissing = data.errors.length >= Math.max(1, Math.floor(totalTickers * 0.5));
 
@@ -35,7 +34,9 @@ export default async function DashboardPage() {
       <DashboardClient
         payload={data}
         meta={{ cached, updatedAt, source: cached ? "cache" : "live" }}
-      />
+      >
+        <NewsWire />
+      </DashboardClient>
     </>
   );
 }
