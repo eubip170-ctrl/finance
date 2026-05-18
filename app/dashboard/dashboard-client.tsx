@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import {
   Columns2,
   Columns3,
@@ -153,9 +153,11 @@ const PALETTE = [
 export function DashboardClient({
   payload,
   meta,
+  children,
 }: {
   payload: DashboardPayload;
   meta?: DashboardMeta;
+  children?: ReactNode;
 }) {
   const [period, setPeriod] = useState<DashboardPeriod>("1D");
   const [trackerCols, setTrackerCols] = useState<1 | 2 | 3>(2);
@@ -287,6 +289,9 @@ export function DashboardClient({
           />
         </div>
       </Section>
+
+      {/* Slot for live news / additional injected panels */}
+      {children}
 
       <Section code="M1" title={`TOP MOVERS · ${period}`}>
         <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
