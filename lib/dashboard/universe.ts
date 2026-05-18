@@ -119,7 +119,6 @@ export const DASHBOARD_GROUPS: DashboardGroup[] = [
       { t: "FXC", n: "CAD/USD" },
       { t: "FXA", n: "AUD/USD" },
       { t: "FXF", n: "CHF/USD" },
-      { t: "CYB", n: "CNY/USD" },
     ],
   },
   {

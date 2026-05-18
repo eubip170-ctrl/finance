@@ -191,7 +191,6 @@ export const BENCHMARK_CATALOG: CatalogGroup[] = [
       { t: "FXF", n: "Swiss Franc" },
       { t: "FXC", n: "Canadian Dollar" },
       { t: "FXA", n: "Australian Dollar" },
-      { t: "CYB", n: "Chinese Yuan" },
     ],
   },
   {
