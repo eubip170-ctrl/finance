@@ -20,10 +20,10 @@ interface ProbeRow {
   ms: number;
 }
 
-async function probeOne(ticker: string): Promise<ProbeRow> {
+async function probeOne(ticker: string, lookbackDays: number): Promise<ProbeRow> {
   const t0 = Date.now();
   try {
-    const rows = await loadOhlcv(ticker, startDateDaysAgo(10), todayISO());
+    const rows = await loadOhlcv(ticker, startDateDaysAgo(lookbackDays), todayISO());
     return {
       ticker,
       ok: rows.length > 0,
@@ -48,13 +48,14 @@ async function probeOne(ticker: string): Promise<ProbeRow> {
 async function probeMany(
   tickers: string[],
   concurrency: number,
+  lookbackDays: number,
 ): Promise<ProbeRow[]> {
   const out: ProbeRow[] = [];
   let idx = 0;
   async function worker() {
     while (idx < tickers.length) {
       const t = tickers[idx++];
-      out.push(await probeOne(t));
+      out.push(await probeOne(t, lookbackDays));
     }
   }
   await Promise.all(Array.from({ length: Math.min(concurrency, tickers.length) }, () => worker()));
@@ -70,6 +71,10 @@ export async function GET(req: Request) {
     12,
   );
   const onlyParam = url.searchParams.get("only");
+  const lookbackDays = Math.min(
+    Math.max(1, Number(url.searchParams.get("days") ?? 10) || 10),
+    2000,
+  );
 
   if (!process.env.MARKETSTACK_API_KEY) {
     return NextResponse.json(
@@ -85,7 +90,7 @@ export async function GET(req: Request) {
   const slice = universe.slice(offset, offset + limit);
   const t0 = Date.now();
   try {
-    const results = await probeMany(slice, concurrency);
+    const results = await probeMany(slice, concurrency, lookbackDays);
     results.sort((a, b) => Number(b.ok) - Number(a.ok) || a.ticker.localeCompare(b.ticker));
 
     const okCount = results.filter((r) => r.ok).length;
@@ -111,6 +116,7 @@ export async function GET(req: Request) {
       topErrors,
       durationMs: Date.now() - t0,
       universeSize: universe.length,
+      lookbackDays,
       nextOffset: offset + slice.length < universe.length ? offset + slice.length : null,
     });
   } catch (err) {
