@@ -5,6 +5,10 @@ import { computeDashboardPayload } from "@/lib/dashboard/payload";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+// Long fetch budget when the cache is cold and we hit MarketStack live for
+// the whole 80-ticker universe. The GitHub Action keeps the cache warm so
+// the hot path stays sub-second.
+export const maxDuration = 120;
 
 const TTL_SEC = 24 * 60 * 60;
 
