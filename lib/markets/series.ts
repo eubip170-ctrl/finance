@@ -66,6 +66,7 @@ export async function getSeries(
 export async function getManySeries(
   symbols: string[],
   lookbackDays: number = DEFAULT_LOOKBACK_DAYS,
+  concurrency = 3,
 ): Promise<Series[]> {
   if (symbols.length === 0) return [];
   try {
@@ -73,7 +74,7 @@ export async function getManySeries(
       symbols,
       startDateDaysAgo(lookbackDays),
       todayISO(),
-      8,
+      concurrency,
     );
     const out: Series[] = [];
     for (const s of symbols) {
