@@ -1,8 +1,8 @@
 import Link from "next/link";
+import { MarketstackProbe } from "./marketstack-probe";
 
 async function loadHealth(): Promise<HealthReport | null> {
   try {
-    // server component running on Vercel — use a relative-safe URL
     const base =
       process.env.NEXT_PUBLIC_BASE_URL ||
       (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
@@ -66,6 +66,10 @@ export default async function HealthPage() {
         )}
       </Section>
 
+      <Section code="MP" title="MARKETSTACK PROBE">
+        <MarketstackProbe />
+      </Section>
+
       <Section code="C" title="CACHE SNAPSHOTS">
         <ChecksTable checks={h.cache} />
         {Object.values(h.cache).some((c) => !c.ok) && (
@@ -85,6 +89,10 @@ export default async function HealthPage() {
         Raw JSON →{" "}
         <Link className="text-accent hover:underline" href="/api/health">
           /api/health
+        </Link>
+        {" · "}
+        <Link className="text-accent hover:underline" href="/api/health/marketstack">
+          /api/health/marketstack
         </Link>
       </div>
     </main>
