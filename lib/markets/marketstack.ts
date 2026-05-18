@@ -15,9 +15,13 @@
 const BASE = "https://api.marketstack.com/v2";
 const PAGE_LIMIT = 1000;
 const NETWORK_RETRY_MAX = 6;
-const RATE_LIMIT_RETRY_MAX = 12;
-const RETRY_BASE_MS = 300;
-const RETRY_MAX_MS = 4000;
+// 24 × jittered exponential backoff capped at 8s ≈ up to ~2 min of retry per
+// request before giving up on rate-limit. Free / Basic tiers throttle per
+// second, so spurious 429s in a burst are common; the longer budget keeps a
+// single throttled ticker from poisoning the whole batch.
+const RATE_LIMIT_RETRY_MAX = 24;
+const RETRY_BASE_MS = 500;
+const RETRY_MAX_MS = 8000;
 
 const FATAL_CODES = new Set([
   "invalid_access_key",
