@@ -51,11 +51,14 @@ const PERIOD_BARS: Record<DashboardPeriod, number> = {
 const SLIM_BARS = 320;
 
 /**
- * Long-form server fetch — must still pull a deep history so the `returns`
- * computation can resolve 3Y / 5Y windows. The actual close arrays handed to
- * the client are sliced to SLIM_BARS just below.
+ * Long-form server fetch — covers up to a 3Y return window with one
+ * MarketStack page per ticker (PAGE_LIMIT = 1000 daily bars). Going past
+ * that would force a second pagination call per symbol and double the
+ * outbound request count, which is what previously busted the rate-limit
+ * budget for the 100+ ticker universe. The 5Y return cell will be null;
+ * everything else still computes from this window.
  */
-const LOOKBACK_DAYS_DEEP = 1600;
+const LOOKBACK_DAYS_DEEP = 1000;
 
 export interface DashboardPayload {
   groups: Array<{
