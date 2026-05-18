@@ -15,13 +15,13 @@
 const BASE = "https://api.marketstack.com/v2";
 const PAGE_LIMIT = 1000;
 const NETWORK_RETRY_MAX = 6;
-// 24 × jittered exponential backoff capped at 8s ≈ up to ~2 min of retry per
-// request before giving up on rate-limit. Free / Basic tiers throttle per
-// second, so spurious 429s in a burst are common; the longer budget keeps a
-// single throttled ticker from poisoning the whole batch.
-const RATE_LIMIT_RETRY_MAX = 24;
+// Concurrency 3 keeps the organic request rate under MarketStack's per-second
+// cap, so 429s should be rare. When they do happen, fall back to a tight
+// retry budget — 12 × 4s caps each throttled ticker at ~15s of waits so a
+// single blocked worker can't push the whole bulk fetch past maxDuration.
+const RATE_LIMIT_RETRY_MAX = 12;
 const RETRY_BASE_MS = 500;
-const RETRY_MAX_MS = 8000;
+const RETRY_MAX_MS = 4000;
 
 const FATAL_CODES = new Set([
   "invalid_access_key",
