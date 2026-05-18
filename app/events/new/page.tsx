@@ -45,13 +45,13 @@ export default function NewEventPage() {
   }
 
   return (
-    <main className="mx-auto max-w-3xl px-6 py-12">
+    <main className="px-6 py-8">
       <Link href="/events" className="text-sm text-zinc-500 hover:text-zinc-300">
         ← Events
       </Link>
       <h1 className="mt-2 text-3xl font-semibold">New event</h1>
 
-      <form onSubmit={handleSubmit} className="mt-8 space-y-5">
+      <form onSubmit={handleSubmit} className="mt-8 max-w-3xl space-y-5">
         <Field label="Title">
           <input
             value={title}

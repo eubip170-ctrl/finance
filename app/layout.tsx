@@ -1,19 +1,21 @@
 import type { Metadata } from "next";
-import { Nav } from "@/components/Nav";
+import { CommandBar } from "@/components/CommandBar";
+import { StatusBar } from "@/components/StatusBar";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "NEVIS — Event/Macro Studier",
+  title: "NEVIS — Terminal",
   description:
-    "Investment research tool — Second Brain, market events, anomaly detection, portfolio optimization.",
+    "Macro / event terminal — Second Brain, market events, focus, charts.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="min-h-screen bg-bg text-zinc-100 antialiased">
-        <Nav />
-        {children}
+      <body className="flex min-h-screen flex-col bg-bg text-zinc-100 antialiased">
+        <CommandBar />
+        <div className="flex-1 pb-8">{children}</div>
+        <StatusBar />
       </body>
     </html>
   );

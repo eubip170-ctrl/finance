@@ -6,6 +6,7 @@ const items = [
   { href: "/focus", label: "Focus" },
   { href: "/charts", label: "Charts" },
   { href: "/brain", label: "Brain" },
+  { href: "/brain/graph", label: "Graph" },
   { href: "/markets", label: "Markets" },
   { href: "/events", label: "Events" },
 ];
@@ -13,7 +14,7 @@ const items = [
 export function Nav() {
   return (
     <nav className="border-b border-border bg-panel/50 backdrop-blur">
-      <div className="mx-auto flex max-w-5xl items-center gap-6 px-6 py-3 text-sm">
+      <div className="flex items-center gap-6 px-6 py-3 text-sm">
         <Link href="/" className="font-semibold text-accent">
           NEVIS
         </Link>

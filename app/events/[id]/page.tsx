@@ -37,14 +37,14 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
 
   if (error || !event) {
     return (
-      <main className="mx-auto max-w-4xl px-6 py-12">
+      <main className="px-6 py-8">
         <p className="text-red-400">Event not found: {error}</p>
       </main>
     );
   }
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-12">
+    <main className="px-6 py-8">
       <Link href="/events" className="text-sm text-zinc-500 hover:text-zinc-300">
         ← Events
       </Link>
@@ -62,13 +62,13 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
         <RunPipelineButton eventId={id} />
       </header>
 
-      {event.summary && <p className="mt-4 text-zinc-300">{event.summary}</p>}
+      {event.summary && <p className="mt-4 max-w-3xl text-zinc-300">{event.summary}</p>}
 
       <Section title={`Entities (${entities.length})`}>
         {entities.length === 0 ? (
           <Empty>Run the pipeline to extract the knowledge graph.</Empty>
         ) : (
-          <ul className="grid grid-cols-1 gap-2 md:grid-cols-2">
+          <ul className="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {entities.map((e) => (
               <li
                 key={`${e.label}-${e.name}`}
@@ -87,7 +87,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
         {actors.length === 0 ? (
           <Empty>No actors yet.</Empty>
         ) : (
-          <ul className="space-y-2">
+          <ul className="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
             {actors.map((a) => (
               <li key={a.name} className="rounded border border-border bg-panel p-3">
                 <div className="flex items-center justify-between">
@@ -130,7 +130,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
         {reports.length === 0 ? (
           <Empty>No reports yet.</Empty>
         ) : (
-          <ul className="space-y-2">
+          <ul className="grid grid-cols-1 gap-2 md:grid-cols-2">
             {reports.map((r) => (
               <li key={r.id}>
                 <Link

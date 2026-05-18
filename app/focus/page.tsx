@@ -1,414 +1,225 @@
-import Link from "next/link";
-import { getManySeries, pctChangeBack, type Series } from "@/lib/markets/series";
+import { cachedOr } from "@/lib/cache/market-cache";
+import { computeFocusPayload, type FocusPayload } from "@/lib/focus/payload";
+import { FocusEventsList } from "./events-list";
 
 export const dynamic = "force-dynamic";
-export const revalidate = 1800;
+export const revalidate = 0;
 
-type Category = "Macro" | "Geopolitics" | "Risk" | "Thematic";
+const TTL_SEC = 24 * 60 * 60;
 
-type FocusEvent = {
-  id: string;
-  name: string;
-  category: Category;
-  importance: 1 | 2 | 3; // 3 = highest
-  description: string;
-  /** Direction: 'abs' = absolute magnitude matters; 'risk-off' = proxy down = stress */
-  direction: "abs" | "risk-off";
-  /** Tickers used to estimate stress level (Yahoo symbols) */
-  proxies: string[];
-  countries: string[];
-  indices: string[];
-  sectors: string[];
-};
+type Regime = "calm" | "stress" | "panic";
 
-/**
- * Curated set of live macro / geopolitical themes inspired by the medge Focus
- * engine. The "score" is calculated from realised performance of the proxy
- * tickers (MarketStack v2 EOD) over the last 20 trading days, projected to
- * 0-100. The regime is derived from realised dispersion on the same window.
- *
- * MarketStack v2 only carries US-listed instruments, so non-US indices,
- * commodities and FX are proxied via their US ETF equivalents.
- */
-const EVENTS: FocusEvent[] = [
-  {
-    id: "fed-pivot",
-    name: "Fed Easing Path",
-    category: "Macro",
-    importance: 3,
-    description:
-      "Markets pricing the trajectory of US policy rates: short-end yields, gold and rate-sensitive equities react together.",
-    direction: "abs",
-    proxies: ["TLT", "GLD", "BIL"],
-    countries: ["United States"],
-    indices: ["SPY", "QQQ"],
-    sectors: ["Real Estate (XLRE)", "Utilities (XLU)", "Financials (XLF)"],
-  },
-  {
-    id: "usd-strength",
-    name: "USD Strength Regime",
-    category: "Macro",
-    importance: 3,
-    description:
-      "Dollar Index dynamics squeezing EM, commodities and exporters. DXY breakouts pressure global liquidity.",
-    direction: "abs",
-    proxies: ["UUP", "FXE", "FXY"],
-    countries: ["United States", "Eurozone", "Japan"],
-    indices: ["SPY", "FEZ", "EWJ"],
-    sectors: ["Materials (XLB)", "Energy (XLE)"],
-  },
-  {
-    id: "inflation-stickiness",
-    name: "Inflation Stickiness",
-    category: "Macro",
-    importance: 2,
-    description:
-      "Persistent core CPI vs. headline disinflation. Watching commodity baskets and inflation-linked bonds.",
-    direction: "abs",
-    proxies: ["TIP", "DBC", "USO"],
-    countries: ["United States", "Eurozone", "United Kingdom"],
-    indices: ["SPY", "EWU"],
-    sectors: ["Energy (XLE)", "Cons. Staples (XLP)"],
-  },
-  {
-    id: "recession-us",
-    name: "US Recession Watch",
-    category: "Risk",
-    importance: 3,
-    description:
-      "Yield curve, cyclical vs. defensive equity ratio and high-yield spreads. Captures growth slowdown odds.",
-    direction: "risk-off",
-    proxies: ["HYG", "XLY", "XLP"],
-    countries: ["United States"],
-    indices: ["SPY", "IWM"],
-    sectors: ["Cons. Discretionary (XLY)", "Industrials (XLI)"],
-  },
-  {
-    id: "eu-slowdown",
-    name: "Eurozone Slowdown",
-    category: "Macro",
-    importance: 2,
-    description:
-      "Bund yields, German auto and industrial exposure, EUR-denominated indices.",
-    direction: "risk-off",
-    proxies: ["FEZ", "EWG", "FXE"],
-    countries: ["Germany", "France", "Italy"],
-    indices: ["FEZ", "EWG", "EWQ"],
-    sectors: ["Industrials (XLI)", "Automakers"],
-  },
-  {
-    id: "china-reopen",
-    name: "China Reopening Stalls",
-    category: "Geopolitics",
-    importance: 2,
-    description:
-      "MSCI China, copper and Hang Seng as proxies for China cyclical demand and policy support.",
-    direction: "risk-off",
-    proxies: ["FXI", "CPER", "EWH"],
-    countries: ["China", "Hong Kong"],
-    indices: ["MCHI", "FXI"],
-    sectors: ["Materials (XLB)", "Industrials (XLI)"],
-  },
-  {
-    id: "middle-east",
-    name: "Middle East Tensions",
-    category: "Geopolitics",
-    importance: 3,
-    description:
-      "Oil shock and safe-haven bid: WTI/Brent, gold, defensive equity baskets.",
-    direction: "abs",
-    proxies: ["USO", "BNO", "GLD"],
-    countries: ["Israel", "Iran", "Saudi Arabia"],
-    indices: ["SPY", "KSA"],
-    sectors: ["Energy (XLE)", "Defense (ITA)"],
-  },
-  {
-    id: "sovereign-debt",
-    name: "Sovereign Debt Risk",
-    category: "Risk",
-    importance: 2,
-    description:
-      "Long-end yields, US fiscal stress and EU peripheral spreads. Watching TLT vs. BNDX.",
-    direction: "risk-off",
-    proxies: ["TLT", "IEF", "BNDX"],
-    countries: ["United States", "Italy", "Japan"],
-    indices: ["SPY", "FEZ"],
-    sectors: ["Financials (XLF)"],
-  },
-  {
-    id: "ai-capex",
-    name: "AI Capex Cycle",
-    category: "Thematic",
-    importance: 3,
-    description:
-      "Semis, hyperscaler capex, power infrastructure. Driving large-cap tech leadership and grid plays.",
-    direction: "abs",
-    proxies: ["SMH", "QQQ", "XLU"],
-    countries: ["United States", "Taiwan", "South Korea"],
-    indices: ["QQQ", "SMH"],
-    sectors: ["Technology (XLK)", "Utilities (XLU)"],
-  },
-  {
-    id: "energy-squeeze",
-    name: "Energy Squeeze",
-    category: "Risk",
-    importance: 2,
-    description:
-      "European natural gas, US WTI and energy equity leadership rotation.",
-    direction: "abs",
-    proxies: ["XLE", "USO", "UNG"],
-    countries: ["United States", "Eurozone", "Russia"],
-    indices: ["SPY", "FEZ"],
-    sectors: ["Energy (XLE)", "Utilities (XLU)"],
-  },
-  {
-    id: "em-stress",
-    name: "EM Financial Stress",
-    category: "Risk",
-    importance: 2,
-    description:
-      "EM equity, currencies and dollar-denominated EM debt. Sensitive to USD and US real rates.",
-    direction: "risk-off",
-    proxies: ["EEM", "EMB", "FXI"],
-    countries: ["China", "Brazil", "Turkey", "South Africa"],
-    indices: ["EEM", "EWZ"],
-    sectors: ["Financials (XLF)", "Materials (XLB)"],
-  },
-  {
-    id: "crypto-cycle",
-    name: "Crypto Risk Appetite",
-    category: "Thematic",
-    importance: 1,
-    description:
-      "BTC and crypto-adjacent equities as a barometer for global liquidity and risk appetite.",
-    direction: "abs",
-    proxies: ["BITO", "COIN", "MARA"],
-    countries: ["United States"],
-    indices: ["QQQ"],
-    sectors: ["Technology (XLK)"],
-  },
-];
-
-type Scored = FocusEvent & {
-  score: number; // 0-100
-  momentum: number; // -1..+1 (sign of net 1M proxy move)
-  regime: "calm" | "stress" | "panic";
-  proxyReturns: Array<{ symbol: string; ret1M: number | null }>;
-};
-
-function scoreEvent(ev: FocusEvent, seriesMap: Map<string, Series>): Scored {
-  const proxyReturns = ev.proxies.map((p) => {
-    const s = seriesMap.get(p);
-    return { symbol: p, ret1M: s ? pctChangeBack(s, 21) : null };
-  });
-  const valid = proxyReturns.map((r) => r.ret1M).filter((v): v is number => v != null);
-  if (valid.length === 0) {
-    return { ...ev, score: 0, momentum: 0, regime: "calm", proxyReturns };
-  }
-
-  // For 'abs' direction, raw magnitude drives score; for 'risk-off' a negative
-  // proxy move increases stress (we flip the sign).
-  const adjusted = valid.map((v) => (ev.direction === "risk-off" ? -v : Math.abs(v)));
-  const meanAdj = adjusted.reduce((a, b) => a + b, 0) / adjusted.length;
-  // Map a mean adjusted return of ~12% (1M) onto a 100 score, clipped.
-  const score = Math.max(0, Math.min(100, Math.round((meanAdj / 12) * 100 + 35)));
-
-  const meanRaw = valid.reduce((a, b) => a + b, 0) / valid.length;
-  const momentum = meanRaw === 0 ? 0 : meanRaw > 0 ? 1 : -1;
-
-  // Regime tiers based on realised dispersion of proxy moves.
-  const dispersion = Math.sqrt(
-    valid.reduce((acc, v) => acc + (v - meanRaw) ** 2, 0) / valid.length,
-  );
-  const regime: Scored["regime"] =
-    dispersion > 12 ? "panic" : dispersion > 6 ? "stress" : "calm";
-
-  return { ...ev, score, momentum, regime, proxyReturns };
-}
-
-const CATEGORY_TONE: Record<Category, string> = {
-  Macro: "text-sky-300 border-sky-900/60 bg-sky-950/40",
-  Geopolitics: "text-rose-300 border-rose-900/60 bg-rose-950/40",
-  Risk: "text-amber-300 border-amber-900/60 bg-amber-950/40",
-  Thematic: "text-violet-300 border-violet-900/60 bg-violet-950/40",
-};
-
-const REGIME_TONE: Record<Scored["regime"], string> = {
+const REGIME_TEXT: Record<Regime, string> = {
   calm: "text-sky-300",
   stress: "text-amber-300",
-  panic: "text-red-400",
+  panic: "text-neg",
+};
+const REGIME_BAR: Record<Regime, string> = {
+  calm: "bg-sky-400",
+  stress: "bg-amber-400",
+  panic: "bg-neg",
 };
 
 export default async function FocusPage() {
-  const allProxies = Array.from(new Set(EVENTS.flatMap((e) => e.proxies)));
-  const series = await getManySeries(allProxies, 90);
-  const seriesMap = new Map(series.map((s) => [s.symbol, s]));
-
-  const scored = EVENTS.map((e) => scoreEvent(e, seriesMap)).sort(
-    (a, b) => b.score - a.score,
+  const { data, cached, updatedAt } = await cachedOr<FocusPayload>(
+    "focus",
+    TTL_SEC,
+    () => computeFocusPayload(),
   );
 
-  const byCategory: Record<Category, Scored[]> = {
-    Macro: [],
-    Geopolitics: [],
-    Risk: [],
-    Thematic: [],
-  };
-  scored.forEach((s) => byCategory[s.category].push(s));
+  const haveTimeline = data.timeline.filter((v): v is number => v != null).length >= 10;
+  const allEmpty = data.events.every((e) => e.score === 0 && e.proxyReturns.every((r) => r.ret1M == null));
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-12">
-      <Link href="/" className="text-sm text-zinc-500 hover:text-zinc-300">
-        ← Home
-      </Link>
-      <h1 className="mt-2 text-3xl font-semibold">Focus</h1>
-      <p className="mt-2 max-w-2xl text-sm text-zinc-400">
-        Live macro and geopolitical themes scored by realised proxy performance.
-        Each card shows score, momentum, market regime and the exposed
-        countries, indices and sectors.
-      </p>
+    <main className="px-3 py-3">
+      <PageHeader code="FOCUS" title="MACRO FOCUS" cached={cached} updatedAt={updatedAt} />
 
-      {/* Score legend */}
-      <div className="mt-6 flex flex-wrap items-center gap-3 text-xs text-zinc-500">
-        <Legend label="Calm" tone="text-sky-300" />
-        <Legend label="Stress" tone="text-amber-300" />
-        <Legend label="Panic" tone="text-red-400" />
-        <span className="ml-auto rounded border border-border bg-panel px-2 py-1 text-[10px] uppercase tracking-wider text-zinc-400">
-          {scored.length} events tracked
-        </span>
+      {allEmpty && (
+        <div className="mt-2 border border-neg/60 bg-neg/10 px-3 py-2 text-2xs uppercase tracking-widest text-neg">
+          <span className="text-neg">⚠</span> NO MARKET DATA · every focus proxy returned
+          empty. Check <span className="text-accent">MARKETSTACK_API_KEY</span> on Vercel and
+          inspect <a className="text-accent underline" href="/health">/health</a>.
+        </div>
+      )}
+
+      <div className="mt-2 grid grid-cols-1 gap-2 xl:grid-cols-4">
+        <Panel code="P0" title="PRESSURE">
+          <PressureBody value={data.pressureNow} delta={data.pressureDelta} regime={data.regime} />
+        </Panel>
+        <div className="xl:col-span-3">
+          <Panel code="T1" title="PRESSURE · 90D TIMELINE">
+            {haveTimeline ? (
+              <TimelineSvg timeline={data.timeline} />
+            ) : (
+              <div className="flex h-32 items-center justify-center text-2xs uppercase text-zinc-600">
+                NOT ENOUGH HISTORY
+              </div>
+            )}
+          </Panel>
+        </div>
       </div>
 
-      {(["Macro", "Geopolitics", "Risk", "Thematic"] as Category[]).map((cat) => (
-        <section key={cat} className="mt-10">
-          <div className="mb-3 flex items-center gap-3">
-            <h2 className="text-sm font-medium uppercase tracking-wide text-zinc-400">
-              {cat}
-            </h2>
-            <span className="rounded border border-border bg-panel px-2 py-0.5 text-[10px] uppercase tracking-wider text-accent">
-              {byCategory[cat].length}
-            </span>
-          </div>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            {byCategory[cat].map((ev) => (
-              <EventCard key={ev.id} ev={ev} />
-            ))}
-          </div>
-        </section>
-      ))}
+      <div className="mt-2 grid grid-cols-3 gap-2">
+        <Bucket label="CALM" tone="calm" count={data.buckets.calm} total={data.total} />
+        <Bucket label="STRESS" tone="stress" count={data.buckets.stress} total={data.total} />
+        <Bucket label="PANIC" tone="panic" count={data.buckets.panic} total={data.total} />
+      </div>
+
+      <FocusEventsList events={data.events} />
     </main>
   );
 }
 
-function Legend({ label, tone }: { label: string; tone: string }) {
+function PageHeader({
+  code,
+  title,
+  cached,
+  updatedAt,
+}: {
+  code: string;
+  title: string;
+  cached: boolean;
+  updatedAt: string | null;
+}) {
   return (
-    <span className={`inline-flex items-center gap-1 ${tone}`}>
-      <span className="inline-block h-2 w-2 rounded-full bg-current" />
-      {label}
-    </span>
+    <div className="flex flex-wrap items-center gap-3 border-b border-border pb-1">
+      <span className="rounded-sm bg-accent/15 px-1.5 py-0.5 text-2xs font-bold uppercase tracking-widest text-accent">
+        {code}
+      </span>
+      <h1 className="text-2xs font-bold uppercase tracking-[0.3em] text-zinc-100">{title}</h1>
+      <span className="ml-auto text-2xs uppercase tracking-widest text-zinc-600">
+        {cached ? "CACHE" : "LIVE"}
+        {updatedAt && (
+          <span className="ml-2 text-zinc-700">· {new Date(updatedAt).toUTCString().slice(5, 22)}</span>
+        )}
+      </span>
+    </div>
   );
 }
 
-function EventCard({ ev }: { ev: Scored }) {
+function Panel({
+  code,
+  title,
+  children,
+}: {
+  code: string;
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
-    <article className="rounded-lg border border-border bg-panel p-4">
-      <header className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <span
-              className={`rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-wider ${
-                CATEGORY_TONE[ev.category]
-              }`}
-            >
-              {ev.category}
-            </span>
-            <span className="text-[10px] uppercase tracking-wider text-zinc-600">
-              importance {ev.importance}/3
-            </span>
-          </div>
-          <h3 className="mt-1 text-base font-medium text-zinc-100">{ev.name}</h3>
-        </div>
-        <div className="text-right">
-          <div className="font-mono text-2xl tabular-nums text-accent">{ev.score}</div>
-          <div className={`text-[10px] uppercase tracking-wider ${REGIME_TONE[ev.regime]}`}>
-            {ev.regime}
-          </div>
-        </div>
-      </header>
+    <div className="border border-border bg-panel">
+      <div className="flex items-center gap-2 border-b border-border bg-black/40 px-2 py-1">
+        <span className="text-2xs font-bold uppercase tracking-widest text-accent">{code}</span>
+        <span className="text-2xs font-medium uppercase tracking-widest text-zinc-300">{title}</span>
+      </div>
+      <div className="px-2 py-2">{children}</div>
+    </div>
+  );
+}
 
-      <p className="mt-2 text-sm text-zinc-400">{ev.description}</p>
-
-      {/* Score bar */}
-      <div className="mt-3 h-1.5 w-full overflow-hidden rounded bg-zinc-800">
+function PressureBody({
+  value,
+  delta,
+  regime,
+}: {
+  value: number;
+  delta: number;
+  regime: Regime;
+}) {
+  return (
+    <div>
+      <div className="flex items-baseline gap-2">
+        <span className="font-mono text-3xl tabular-nums text-accent">{value.toFixed(1)}</span>
+        <span className="text-2xs uppercase text-zinc-500">/ 100</span>
+      </div>
+      <div className="mt-1 flex items-center gap-2 text-2xs uppercase tracking-widest">
+        <span className={REGIME_TEXT[regime]}>{regime}</span>
+        <span
+          className={
+            delta > 0
+              ? "text-neg"
+              : delta < 0
+                ? "text-pos"
+                : "text-zinc-500"
+          }
+        >
+          {delta > 0 ? "+" : ""}
+          {delta.toFixed(1)} Δ 90D
+        </span>
+      </div>
+      <div className="mt-2 h-1 w-full overflow-hidden bg-black">
         <div
-          className="h-full bg-accent"
-          style={{ width: `${ev.score}%` }}
+          className={`h-full ${REGIME_BAR[regime]}`}
+          style={{ width: `${Math.min(100, Math.max(0, value))}%` }}
         />
       </div>
-
-      <div className="mt-3 flex items-center justify-between text-[11px]">
-        <span className="text-zinc-500">
-          momentum:{" "}
-          <span
-            className={
-              ev.momentum > 0
-                ? "text-emerald-400"
-                : ev.momentum < 0
-                  ? "text-red-400"
-                  : "text-zinc-400"
-            }
-          >
-            {ev.momentum > 0 ? "▲ rising" : ev.momentum < 0 ? "▼ falling" : "flat"}
-          </span>
-        </span>
-        <span className="text-zinc-500">
-          direction:{" "}
-          <span className="text-zinc-300">{ev.direction}</span>
-        </span>
-      </div>
-
-      {/* Proxy returns */}
-      <div className="mt-3 grid grid-cols-3 gap-2 text-[11px]">
-        {ev.proxyReturns.map((p) => {
-          const v = p.ret1M;
-          const positive = v != null && v >= 0;
-          return (
-            <div key={p.symbol} className="rounded border border-border bg-bg/40 px-2 py-1.5">
-              <div className="font-mono text-[10px] text-zinc-500">{p.symbol}</div>
-              <div
-                className={`font-mono tabular-nums ${
-                  v == null ? "text-zinc-600" : positive ? "text-emerald-400" : "text-red-400"
-                }`}
-              >
-                {v == null ? "—" : `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Influences */}
-      <div className="mt-3 space-y-1 text-[11px]">
-        <Influence label="Countries" items={ev.countries} />
-        <Influence label="Indices" items={ev.indices} />
-        <Influence label="Sectors" items={ev.sectors} />
-      </div>
-    </article>
+    </div>
   );
 }
 
-function Influence({ label, items }: { label: string; items: string[] }) {
-  if (items.length === 0) return null;
+function TimelineSvg({ timeline }: { timeline: Array<number | null> }) {
+  const values = timeline.map((v, i) => ({ x: i, y: v }));
+  const valid = values.filter((p): p is { x: number; y: number } => p.y != null);
+  if (valid.length < 2) {
+    return (
+      <div className="flex h-32 items-center justify-center text-2xs uppercase text-zinc-600">
+        NOT ENOUGH HISTORY
+      </div>
+    );
+  }
+  const W = 600;
+  const H = 120;
+  const xs = valid.map((p) => p.x);
+  const ys = valid.map((p) => p.y);
+  const xMin = Math.min(...xs);
+  const xMax = Math.max(...xs);
+  const yMin = Math.min(...ys, 0);
+  const yMax = Math.max(...ys, 100);
+  const sx = (x: number) =>
+    xMax === xMin ? 0 : ((x - xMin) / (xMax - xMin)) * (W - 8) + 4;
+  const sy = (y: number) =>
+    yMax === yMin ? H / 2 : H - 4 - ((y - yMin) / (yMax - yMin)) * (H - 8);
+  const d = valid
+    .map((p, i) => `${i === 0 ? "M" : "L"}${sx(p.x).toFixed(1)},${sy(p.y).toFixed(1)}`)
+    .join(" ");
+  const last = valid[valid.length - 1];
   return (
-    <div className="flex flex-wrap gap-1">
-      <span className="text-[10px] uppercase tracking-wider text-zinc-600">{label}</span>
-      {items.map((it) => (
-        <span
-          key={it}
-          className="rounded border border-border bg-bg/40 px-1.5 py-0.5 text-[10px] text-zinc-300"
-        >
-          {it}
+    <svg viewBox={`0 0 ${W} ${H}`} className="h-32 w-full" preserveAspectRatio="none">
+      <line x1={0} x2={W} y1={sy(yMin)} y2={sy(yMin)} stroke="#262629" />
+      <line x1={0} x2={W} y1={sy((yMin + yMax) / 2)} y2={sy((yMin + yMax) / 2)} stroke="#262629" strokeDasharray="2,3" />
+      <line x1={0} x2={W} y1={sy(yMax)} y2={sy(yMax)} stroke="#262629" />
+      <path d={d} fill="none" stroke="#f5a623" strokeWidth={1.5} />
+      <circle cx={sx(last.x)} cy={sy(last.y)} r={2.5} fill="#f5a623" />
+    </svg>
+  );
+}
+
+function Bucket({
+  label,
+  tone,
+  count,
+  total,
+}: {
+  label: string;
+  tone: Regime;
+  count: number;
+  total: number;
+}) {
+  const pct = total === 0 ? 0 : Math.round((count / total) * 100);
+  return (
+    <div className="border border-border bg-panel px-2 py-1">
+      <div className="flex items-center justify-between">
+        <span className={`text-2xs font-bold uppercase tracking-widest ${REGIME_TEXT[tone]}`}>
+          {label}
         </span>
-      ))}
+        <span className="font-mono text-lg tabular-nums text-zinc-100">{count}</span>
+      </div>
+      <div className="mt-1 h-1 w-full overflow-hidden bg-black">
+        <div className={`h-full ${REGIME_BAR[tone]}`} style={{ width: `${pct}%` }} />
+      </div>
+      <div className="mt-1 text-2xs uppercase tracking-widest text-zinc-500">
+        {pct}% of {total}
+      </div>
     </div>
   );
 }

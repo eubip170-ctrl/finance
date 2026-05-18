@@ -9,7 +9,7 @@ async function loadEvents() {
     .from("events")
     .select("id,title,event_type,status,occurred_at,created_at")
     .order("created_at", { ascending: false })
-    .limit(50);
+    .limit(100);
   if (error) return { events: [], error: error.message };
   return { events: data ?? [], error: null };
 }
@@ -33,51 +33,63 @@ export default async function EventsPage() {
   }
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-12">
-      <div className="mb-8 flex items-center justify-between">
-        <div>
-          <Link href="/" className="text-sm text-zinc-500 hover:text-zinc-300">
-            ← Home
-          </Link>
-          <h1 className="mt-2 text-3xl font-semibold text-zinc-100">Events</h1>
-          <p className="mt-2 text-sm text-zinc-400">
-            Seed eventi macro/geopolitici e pipeline studier.
-          </p>
-        </div>
+    <main className="px-3 py-3">
+      <div className="flex items-center gap-3 border-b border-border pb-1">
+        <span className="rounded-sm bg-accent/15 px-1.5 py-0.5 text-2xs font-bold uppercase tracking-widest text-accent">
+          EVT
+        </span>
+        <h1 className="text-2xs font-bold uppercase tracking-[0.3em] text-zinc-100">EVENTS</h1>
         <Link
           href="/events/new"
-          className="rounded-md border border-accent/40 bg-accent/10 px-4 py-2 text-sm text-accent hover:bg-accent/20"
+          className="ml-auto border border-accent/60 px-2 py-0.5 text-2xs uppercase tracking-widest text-accent hover:bg-accent/10"
         >
-          + New event
+          + NEW
         </Link>
       </div>
 
       {dbError && (
-        <div className="mb-6 rounded-md border border-red-900 bg-red-950/40 p-4 text-sm text-red-300">
-          DB error: {dbError}. Verifica le env Supabase e che la migration sia applicata.
+        <div className="mt-2 border border-neg/60 bg-neg/10 px-2 py-1 text-2xs uppercase text-neg">
+          db error: {dbError}
         </div>
       )}
 
       {events.length === 0 && !dbError ? (
-        <p className="text-zinc-500">Nessun evento ancora. Crea il primo.</p>
+        <p className="mt-2 text-2xs uppercase text-zinc-600">no events yet</p>
       ) : (
-        <ul className="divide-y divide-border rounded-lg border border-border bg-panel">
-          {events.map((ev) => (
-            <li key={ev.id} className="p-4 hover:bg-zinc-900/30">
-              <Link href={`/events/${ev.id}`} className="flex items-center justify-between">
-                <div>
-                  <div className="text-zinc-100">{ev.title}</div>
-                  <div className="mt-1 text-xs text-zinc-500">
-                    {ev.event_type} · {new Date(ev.created_at).toLocaleString()}
-                  </div>
-                </div>
-                <span className="rounded bg-zinc-800 px-2 py-1 text-xs text-zinc-400">
-                  {ev.status}
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ul>
+        <div className="mt-2 overflow-x-auto border border-border bg-panel">
+          <table className="w-full font-mono text-2xs tabular-nums">
+            <thead>
+              <tr className="border-b border-border bg-black/40 text-left uppercase tracking-widest text-zinc-500">
+                <th className="px-2 py-1">TIME</th>
+                <th className="px-2 py-1">TYPE</th>
+                <th className="px-2 py-1">TITLE</th>
+                <th className="px-2 py-1 text-right">STATUS</th>
+              </tr>
+            </thead>
+            <tbody>
+              {events.map((ev) => (
+                <tr key={ev.id} className="border-b border-border/60 last:border-0 hover:bg-black/40">
+                  <td className="px-2 py-1 text-zinc-500">
+                    {new Date(ev.created_at).toLocaleString(undefined, {
+                      year: "2-digit",
+                      month: "2-digit",
+                      day: "2-digit",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </td>
+                  <td className="px-2 py-1 text-accent">{ev.event_type}</td>
+                  <td className="px-2 py-1 text-zinc-100">
+                    <Link href={`/events/${ev.id}`} className="hover:text-accent">
+                      {ev.title}
+                    </Link>
+                  </td>
+                  <td className="px-2 py-1 text-right uppercase text-zinc-400">{ev.status}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </main>
   );

@@ -14,76 +14,81 @@ export default async function MarketsPage() {
   ]);
 
   const quoteList = quotes.status === "fulfilled" ? quotes.value : [];
-  const feedList = feed.status === "fulfilled" ? feed.value.slice(0, 20) : [];
+  const feedList = feed.status === "fulfilled" ? feed.value.slice(0, 24) : [];
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-12">
-      <Link href="/" className="text-sm text-zinc-500 hover:text-zinc-300">
-        ← Home
-      </Link>
-      <h1 className="mt-2 text-3xl font-semibold">Markets</h1>
+    <main className="px-3 py-3">
+      <div className="flex items-center gap-3 border-b border-border pb-1">
+        <span className="rounded-sm bg-accent/15 px-1.5 py-0.5 text-2xs font-bold uppercase tracking-widest text-accent">
+          MKTS
+        </span>
+        <h1 className="text-2xs font-bold uppercase tracking-[0.3em] text-zinc-100">MARKETS</h1>
+      </div>
 
-      <section className="mt-8">
-        <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-zinc-400">
-          Watchlist
-        </h2>
-        {quotes.status === "rejected" ? (
-          <p className="text-sm text-red-400">Yahoo error: {String(quotes.reason)}</p>
-        ) : quoteList.length === 0 ? (
-          <p className="text-sm text-zinc-500">
-            Yahoo Finance temporarily rate-limited this region. Refresh in ~1 minute.
-          </p>
-        ) : (
-          <ul className="grid grid-cols-2 gap-3 md:grid-cols-4">
-            {quoteList.map((q) => (
-              <li key={q.symbol} className="rounded border border-border bg-panel p-3">
-                <div className="text-xs uppercase tracking-wide text-zinc-500">
-                  {q.symbol}
-                </div>
-                <div className="text-zinc-100">
-                  {q.regularMarketPrice?.toFixed(2) ?? "—"}
-                </div>
-                <div
-                  className={`text-xs ${
-                    (q.regularMarketChangePercent ?? 0) >= 0
-                      ? "text-emerald-400"
-                      : "text-red-400"
-                  }`}
-                >
-                  {q.regularMarketChangePercent?.toFixed(2) ?? "0"}%
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      <div className="mt-2 border border-border bg-panel">
+        <div className="flex items-center gap-2 border-b border-border bg-black/40 px-2 py-1">
+          <span className="text-2xs font-bold uppercase tracking-widest text-accent">W1</span>
+          <span className="text-2xs font-medium uppercase tracking-widest text-zinc-300">WATCHLIST</span>
+        </div>
+        <div className="px-2 py-2">
+          {quotes.status === "rejected" ? (
+            <p className="text-2xs uppercase text-neg">yahoo error: {String(quotes.reason)}</p>
+          ) : quoteList.length === 0 ? (
+            <p className="text-2xs uppercase text-zinc-600">yahoo rate-limited · retry ~1m</p>
+          ) : (
+            <ul className="grid grid-cols-2 gap-1 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7">
+              {quoteList.map((q) => {
+                const positive = (q.regularMarketChangePercent ?? 0) >= 0;
+                return (
+                  <li key={q.symbol} className="border border-border bg-black/30 px-2 py-1">
+                    <div className="text-2xs font-bold uppercase tracking-widest text-accent">
+                      {q.symbol}
+                    </div>
+                    <div className="font-mono text-sm tabular-nums text-zinc-100">
+                      {q.regularMarketPrice?.toFixed(2) ?? "—"}
+                    </div>
+                    <div className={`font-mono text-2xs tabular-nums ${positive ? "text-pos" : "text-neg"}`}>
+                      {q.regularMarketChangePercent?.toFixed(2) ?? "0"}%
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      </div>
 
-      <section className="mt-10">
-        <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-zinc-400">
-          Recent news
-        </h2>
-        {feed.status === "rejected" ? (
-          <p className="text-sm text-red-400">Feed error: {String(feed.reason)}</p>
-        ) : (
-          <ul className="space-y-2">
-            {feedList.map((it) => (
-              <li key={it.guid ?? it.link} className="rounded border border-border bg-panel p-3">
-                <a
-                  href={it.link}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-zinc-100 hover:text-accent"
-                >
-                  {it.title}
-                </a>
-                <div className="mt-1 text-xs text-zinc-500">
-                  {it.feedName} · {it.isoDate ? new Date(it.isoDate).toLocaleString() : ""}
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      <div className="mt-2 border border-border bg-panel">
+        <div className="flex items-center gap-2 border-b border-border bg-black/40 px-2 py-1">
+          <span className="text-2xs font-bold uppercase tracking-widest text-accent">N1</span>
+          <span className="text-2xs font-medium uppercase tracking-widest text-zinc-300">NEWS WIRE</span>
+        </div>
+        <div className="px-2 py-2">
+          {feed.status === "rejected" ? (
+            <p className="text-2xs uppercase text-neg">feed error</p>
+          ) : (
+            <ul className="grid grid-cols-1 gap-1 md:grid-cols-2 xl:grid-cols-3">
+              {feedList.map((it) => (
+                <li key={it.guid ?? it.link} className="border border-border bg-black/30 px-2 py-1">
+                  <a
+                    href={it.link}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block truncate text-xs text-zinc-100 hover:text-accent"
+                  >
+                    {it.title}
+                  </a>
+                  <div className="text-2xs uppercase tracking-widest text-zinc-600">
+                    {it.feedName} · {it.isoDate ? new Date(it.isoDate).toLocaleString() : ""}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
     </main>
   );
 }
+
+void Link;

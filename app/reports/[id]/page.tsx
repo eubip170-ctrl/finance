@@ -14,14 +14,14 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
 
   if (error || !data) {
     return (
-      <main className="mx-auto max-w-3xl px-6 py-12">
+      <main className="px-6 py-8">
         <p className="text-red-400">Report not found.</p>
       </main>
     );
   }
 
   return (
-    <main className="mx-auto max-w-3xl px-6 py-12">
+    <main className="px-6 py-8">
       <Link
         href={`/events/${data.event_id}`}
         className="text-sm text-zinc-500 hover:text-zinc-300"
@@ -32,7 +32,7 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
       <p className="mt-1 text-xs text-zinc-500">
         {new Date(data.created_at).toLocaleString()}
       </p>
-      <pre className="mt-8 whitespace-pre-wrap rounded-lg border border-border bg-panel p-6 text-sm leading-relaxed text-zinc-200">
+      <pre className="mt-8 max-w-5xl whitespace-pre-wrap rounded-lg border border-border bg-panel p-6 text-sm leading-relaxed text-zinc-200">
         {data.body_md}
       </pre>
     </main>
