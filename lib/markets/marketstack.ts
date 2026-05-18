@@ -216,17 +216,23 @@ export async function loadMultipleOhlcv(
   const series = new Map<string, OhlcvRow[]>();
   const errors: Record<string, string> = {};
   let idx = 0;
+  let fatal = false;
 
   async function worker() {
-    while (idx < tickers.length) {
+    while (idx < tickers.length && !fatal) {
       const t = tickers[idx++];
       try {
         const rows = await loadOhlcv(t, start, end);
         if (rows.length === 0) errors[t] = "no data";
         else series.set(t, rows);
       } catch (err) {
-        if (err instanceof MarketstackFatalError) throw err;
         errors[t] = err instanceof Error ? err.message : "unknown";
+        if (err instanceof MarketstackFatalError) {
+          // Stop pulling more work, but keep whatever rows other workers
+          // have already fetched. Throwing here would reject Promise.all
+          // and erase the entire partial result.
+          fatal = true;
+        }
       }
     }
   }
