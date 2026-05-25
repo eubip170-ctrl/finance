@@ -15,8 +15,14 @@ export default function BrainPage() {
           SECOND BRAIN
         </h1>
         <Link
-          href="/brain/graph"
+          href="/brain/brief"
           className="ml-auto border border-accent/60 px-2 py-0.5 text-2xs uppercase tracking-widest text-accent hover:bg-accent/10"
+        >
+          BRIEF →
+        </Link>
+        <Link
+          href="/brain/graph"
+          className="border border-accent/60 px-2 py-0.5 text-2xs uppercase tracking-widest text-accent hover:bg-accent/10"
         >
           GRPH →
         </Link>
