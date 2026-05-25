@@ -11,8 +11,12 @@ interface BrainStats {
     sources: number;
     chunksWithEmbedding: number;
     chunksWithoutEmbedding: number;
+    docsEnriched: number;
+    docsUnenriched: number;
   };
   bySource: Array<{ source: string; count: number }>;
+  byTopic: Array<{ topic: string; count: number }>;
+  bySentiment: Array<{ sentiment: "bullish" | "bearish" | "neutral"; count: number }>;
   ingestTimeline: Array<{ date: string; count: number }>;
   recent: Array<{
     id: string;
@@ -32,25 +36,40 @@ export async function GET(): Promise<NextResponse> {
   try {
     const supabase = supabaseAdmin();
 
-    const [docCountRes, chunkCountRes, allSourcesRes, recentRes, chunksWithEmbRes, last30Res] =
-      await Promise.all([
-        supabase.from("brain_documents").select("*", { count: "exact", head: true }),
-        supabase.from("brain_chunks").select("*", { count: "exact", head: true }),
-        supabase.from("brain_documents").select("source_type"),
-        supabase
-          .from("brain_documents")
-          .select("id,title,source_type,source_url,created_at")
-          .order("created_at", { ascending: false })
-          .limit(8),
-        supabase
-          .from("brain_chunks")
-          .select("*", { count: "exact", head: true })
-          .not("embedding", "is", null),
-        supabase
-          .from("brain_documents")
-          .select("created_at")
-          .gte("created_at", new Date(Date.now() - 30 * 86400_000).toISOString()),
-      ]);
+    const [
+      docCountRes,
+      chunkCountRes,
+      allSourcesRes,
+      recentRes,
+      chunksWithEmbRes,
+      last30Res,
+      enrichedRes,
+      topicsRes,
+      sentimentRes,
+    ] = await Promise.all([
+      supabase.from("brain_documents").select("*", { count: "exact", head: true }),
+      supabase.from("brain_chunks").select("*", { count: "exact", head: true }),
+      supabase.from("brain_documents").select("source_type"),
+      supabase
+        .from("brain_documents")
+        .select("id,title,source_type,source_url,created_at")
+        .order("created_at", { ascending: false })
+        .limit(8),
+      supabase
+        .from("brain_chunks")
+        .select("*", { count: "exact", head: true })
+        .not("embedding", "is", null),
+      supabase
+        .from("brain_documents")
+        .select("created_at")
+        .gte("created_at", new Date(Date.now() - 30 * 86400_000).toISOString()),
+      supabase
+        .from("brain_documents")
+        .select("*", { count: "exact", head: true })
+        .not("enriched_at", "is", null),
+      supabase.from("brain_documents").select("topics").not("enriched_at", "is", null),
+      supabase.from("brain_documents").select("sentiment").not("sentiment", "is", null),
+    ]);
 
     const bySourceMap: Record<string, number> = {};
     for (const r of (allSourcesRes.data ?? []) as Array<{ source_type: string }>) {
@@ -77,6 +96,31 @@ export async function GET(): Promise<NextResponse> {
     const totalDocs = docCountRes.count ?? 0;
     const avgChunks = totalDocs === 0 ? 0 : Math.round((totalChunks / totalDocs) * 10) / 10;
 
+    // Topic histogram (flattening the per-row topics arrays)
+    const topicCount: Record<string, number> = {};
+    for (const r of (topicsRes.data ?? []) as Array<{ topics: string[] | null }>) {
+      for (const t of r.topics ?? []) topicCount[t] = (topicCount[t] ?? 0) + 1;
+    }
+    const byTopic = Object.entries(topicCount)
+      .map(([topic, count]) => ({ topic, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 24);
+
+    const sentimentCount: Record<"bullish" | "bearish" | "neutral", number> = {
+      bullish: 0,
+      bearish: 0,
+      neutral: 0,
+    };
+    for (const r of (sentimentRes.data ?? []) as Array<{
+      sentiment: "bullish" | "bearish" | "neutral";
+    }>) {
+      sentimentCount[r.sentiment] = (sentimentCount[r.sentiment] ?? 0) + 1;
+    }
+    const bySentiment = (Object.entries(sentimentCount) as Array<
+      ["bullish" | "bearish" | "neutral", number]
+    >).map(([sentiment, count]) => ({ sentiment, count }));
+
+    const docsEnriched = enrichedRes.count ?? 0;
     const stats: BrainStats = {
       totals: {
         docs: totalDocs,
@@ -84,8 +128,12 @@ export async function GET(): Promise<NextResponse> {
         sources: bySource.length,
         chunksWithEmbedding: withEmb,
         chunksWithoutEmbedding: Math.max(0, totalChunks - withEmb),
+        docsEnriched,
+        docsUnenriched: Math.max(0, totalDocs - docsEnriched),
       },
       bySource,
+      byTopic,
+      bySentiment,
       ingestTimeline,
       recent: (recentRes.data ?? []) as BrainStats["recent"],
       quality: {

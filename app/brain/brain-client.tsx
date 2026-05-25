@@ -357,7 +357,52 @@ interface DocRow {
   author: string | null;
   published_at: string | null;
   created_at: string;
+  summary?: string | null;
+  topics?: string[] | null;
+  sentiment?: "bullish" | "bearish" | "neutral" | null;
+  entities?: Array<{ kind: string; value: string }> | null;
 }
+
+const TOPIC_OPTIONS = [
+  "rates",
+  "inflation",
+  "growth",
+  "central-banks",
+  "fiscal",
+  "fx",
+  "liquidity",
+  "equities",
+  "credit",
+  "rates-bonds",
+  "commodities",
+  "crypto",
+  "gold",
+  "oil",
+  "tech",
+  "financials",
+  "energy",
+  "healthcare",
+  "us",
+  "europe",
+  "china",
+  "em",
+  "japan",
+  "ai",
+  "geopolitics",
+  "earnings",
+  "regulation",
+  "risk-on",
+  "risk-off",
+  "stagflation",
+  "soft-landing",
+  "recession",
+] as const;
+
+const SENTIMENT_TONE: Record<"bullish" | "bearish" | "neutral", string> = {
+  bullish: "text-pos",
+  bearish: "text-neg",
+  neutral: "text-zinc-400",
+};
 
 interface DocsResponse {
   docs: DocRow[];
@@ -372,6 +417,9 @@ function LibraryPanel({ onOpenDoc }: { onOpenDoc: (id: string) => void }) {
   const [source, setSource] = useState<"" | SourceType>("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [topic, setTopic] = useState("");
+  const [sentiment, setSentiment] = useState<"" | "bullish" | "bearish" | "neutral">("");
+  const [entity, setEntity] = useState("");
   const [cursor, setCursor] = useState(0);
   const [data, setData] = useState<DocsResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -386,6 +434,9 @@ function LibraryPanel({ onOpenDoc }: { onOpenDoc: (id: string) => void }) {
       if (source) params.set("source", source);
       if (from) params.set("from", from);
       if (to) params.set("to", to);
+      if (topic) params.set("topic", topic);
+      if (sentiment) params.set("sentiment", sentiment);
+      if (entity.trim()) params.set("entity", entity.trim());
       params.set("cursor", String(cursor));
       const res = await fetch(`/api/brain/docs?${params.toString()}`);
       const j = await res.json();
@@ -396,7 +447,7 @@ function LibraryPanel({ onOpenDoc }: { onOpenDoc: (id: string) => void }) {
     } finally {
       setLoading(false);
     }
-  }, [q, source, from, to, cursor]);
+  }, [q, source, from, to, topic, sentiment, entity, cursor]);
 
   useEffect(() => {
     void load();
@@ -411,6 +462,9 @@ function LibraryPanel({ onOpenDoc }: { onOpenDoc: (id: string) => void }) {
     setSource("");
     setFrom("");
     setTo("");
+    setTopic("");
+    setSentiment("");
+    setEntity("");
     setCursor(0);
   }
 
@@ -476,6 +530,52 @@ function LibraryPanel({ onOpenDoc }: { onOpenDoc: (id: string) => void }) {
             className="input-field w-36"
           />
         </div>
+        <div>
+          <label className="block text-2xs uppercase tracking-widest text-zinc-500 mb-0.5">
+            TOPIC
+          </label>
+          <select
+            value={topic}
+            onChange={(e) => setTopic(e.target.value)}
+            className="input-field w-36"
+          >
+            <option value="">all</option>
+            {TOPIC_OPTIONS.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-2xs uppercase tracking-widest text-zinc-500 mb-0.5">
+            SENTIMENT
+          </label>
+          <select
+            value={sentiment}
+            onChange={(e) =>
+              setSentiment(e.target.value as "" | "bullish" | "bearish" | "neutral")
+            }
+            className="input-field w-28"
+          >
+            <option value="">all</option>
+            <option value="bullish">bullish</option>
+            <option value="bearish">bearish</option>
+            <option value="neutral">neutral</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-2xs uppercase tracking-widest text-zinc-500 mb-0.5">
+            ENTITY
+          </label>
+          <input
+            value={entity}
+            onChange={(e) => setEntity(e.target.value)}
+            placeholder="AAPL · Powell …"
+            className="input-field w-36"
+            onKeyDown={(e) => e.key === "Enter" && applyFilters()}
+          />
+        </div>
         <button onClick={applyFilters} className="btn-secondary">
           <Filter size={11} /> APPLY
         </button>
@@ -520,7 +620,7 @@ function LibraryPanel({ onOpenDoc }: { onOpenDoc: (id: string) => void }) {
                   className="cursor-pointer border-b border-border/60 last:border-0 hover:bg-black/40"
                   onClick={() => onOpenDoc(d.id)}
                 >
-                  <td className="px-2 py-1 text-zinc-500">
+                  <td className="px-2 py-1 align-top text-zinc-500">
                     {new Date(d.created_at).toLocaleString(undefined, {
                       year: "2-digit",
                       month: "2-digit",
@@ -529,9 +629,38 @@ function LibraryPanel({ onOpenDoc }: { onOpenDoc: (id: string) => void }) {
                       minute: "2-digit",
                     })}
                   </td>
-                  <td className="px-2 py-1 text-accent">{d.source_type}</td>
-                  <td className="px-2 py-1 text-zinc-200">{d.title}</td>
-                  <td className="px-2 py-1 text-right text-zinc-500">
+                  <td className="px-2 py-1 align-top text-accent">{d.source_type}</td>
+                  <td className="px-2 py-1 align-top text-zinc-200">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span>{d.title}</span>
+                      {d.sentiment && (
+                        <span
+                          className={`rounded-sm bg-black/50 px-1 py-0.5 text-2xs uppercase tracking-widest ${SENTIMENT_TONE[d.sentiment]}`}
+                        >
+                          {d.sentiment}
+                        </span>
+                      )}
+                      {(d.topics ?? []).slice(0, 4).map((t) => (
+                        <span
+                          key={t}
+                          className="rounded-sm border border-border bg-black/40 px-1 py-0.5 text-2xs uppercase tracking-widest text-zinc-400 hover:text-accent"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setTopic(t);
+                            setCursor(0);
+                          }}
+                        >
+                          {t}
+                        </span>
+                      ))}
+                    </div>
+                    {d.summary && (
+                      <div className="mt-1 text-2xs text-zinc-500 line-clamp-2">
+                        {d.summary}
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-2 py-1 align-top text-right text-zinc-500">
                     {d.source_url ? (
                       <a
                         href={d.source_url}
@@ -589,8 +718,12 @@ interface BrainStats {
     sources: number;
     chunksWithEmbedding: number;
     chunksWithoutEmbedding: number;
+    docsEnriched?: number;
+    docsUnenriched?: number;
   };
   bySource: Array<{ source: string; count: number }>;
+  byTopic?: Array<{ topic: string; count: number }>;
+  bySentiment?: Array<{ sentiment: "bullish" | "bearish" | "neutral"; count: number }>;
   ingestTimeline: Array<{ date: string; count: number }>;
   recent: Array<{
     id: string;
@@ -766,6 +899,8 @@ interface ReembedResp {
   nextCall?: "yes" | "no";
 }
 
+type EnrichResp = ReembedResp;
+
 function AdminPanel() {
   const { stats, reload, error: statsError } = useStats();
 
@@ -776,6 +911,10 @@ function AdminPanel() {
   const [reembedRuns, setReembedRuns] = useState<ReembedResp[]>([]);
   const [reembedBusy, setReembedBusy] = useState(false);
   const [reembedError, setReembedError] = useState("");
+
+  const [enrichRuns, setEnrichRuns] = useState<EnrichResp[]>([]);
+  const [enrichBusy, setEnrichBusy] = useState(false);
+  const [enrichError, setEnrichError] = useState("");
 
   async function runDedupe(apply: boolean) {
     setDedupeBusy(apply ? "apply" : "dry");
@@ -794,6 +933,32 @@ function AdminPanel() {
       setDedupeError(err instanceof Error ? err.message : "unknown");
     } finally {
       setDedupeBusy("");
+    }
+  }
+
+  async function runEnrich() {
+    setEnrichBusy(true);
+    setEnrichError("");
+    setEnrichRuns([]);
+    try {
+      let done = false;
+      let iter = 0;
+      const runs: EnrichResp[] = [];
+      while (!done && iter < 50) {
+        iter += 1;
+        const res = await fetch("/api/brain/admin/enrich", { method: "POST" });
+        const j = await res.json();
+        if (!res.ok) throw new Error(j.error || "failed");
+        const run = j as EnrichResp;
+        runs.push(run);
+        setEnrichRuns([...runs]);
+        if (run.nextCall === "no" || run.processed === 0) done = true;
+      }
+      await reload();
+    } catch (err) {
+      setEnrichError(err instanceof Error ? err.message : "unknown");
+    } finally {
+      setEnrichBusy(false);
     }
   }
 
@@ -828,8 +993,76 @@ function AdminPanel() {
       ? Math.round((stats.totals.chunksWithEmbedding / stats.totals.chunks) * 1000) / 10
       : 100;
 
+  const enrichCoverage =
+    stats && stats.totals.docs > 0
+      ? Math.round(((stats.totals.docsEnriched ?? 0) / stats.totals.docs) * 1000) / 10
+      : 100;
+
   return (
     <>
+      <Section code="A1" title="AI ENRICHMENT COVERAGE">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-5">
+          <Stat label="COVERAGE" value={`${enrichCoverage}%`} />
+          <Stat label="ENRICHED" value={stats?.totals.docsEnriched ?? "…"} />
+          <Stat label="PENDING" value={stats?.totals.docsUnenriched ?? "…"} />
+          <Stat label="TOPICS" value={stats?.byTopic?.length ?? "…"} />
+          <Stat
+            label="SENT. SPLIT"
+            value={
+              stats?.bySentiment
+                ? stats.bySentiment.map((s) => `${s.sentiment[0].toUpperCase()}${s.count}`).join(" ")
+                : "…"
+            }
+          />
+        </div>
+        {stats && stats.totals.docs > 0 && (
+          <div className="mt-2 h-2 w-full overflow-hidden bg-black">
+            <div className="h-full bg-accent" style={{ width: `${enrichCoverage}%` }} />
+          </div>
+        )}
+      </Section>
+
+      <Section code="A2" title="BACKFILL ENRICHMENT">
+        <p className="text-2xs uppercase tracking-widest text-zinc-500">
+          Generates <code className="text-accent">summary · entities · topics · sentiment</code> for
+          docs where <code className="text-accent">enriched_at IS NULL</code>. Loops in
+          20-doc batches — gpt-4o-mini, ~$0.0002 per doc.
+        </p>
+        <button onClick={runEnrich} disabled={enrichBusy} className="btn-primary mt-2">
+          <RefreshCw size={11} className={enrichBusy ? "animate-spin" : ""} />{" "}
+          {enrichBusy ? "RUNNING…" : "RUN"}
+        </button>
+        {enrichError && (
+          <div className="mt-2 border border-neg/60 bg-neg/10 px-2 py-1 text-2xs uppercase text-neg">
+            {enrichError}
+          </div>
+        )}
+        {enrichRuns.length > 0 && (
+          <table className="mt-2 w-full font-mono text-2xs tabular-nums">
+            <thead>
+              <tr className="border-b border-border text-left uppercase tracking-widest text-zinc-500">
+                <th className="px-2 py-1">RUN</th>
+                <th className="px-2 py-1 text-right">PROCESSED</th>
+                <th className="px-2 py-1 text-right">FAILED</th>
+                <th className="px-2 py-1 text-right">REMAINING</th>
+                <th className="px-2 py-1 text-right">DURATION</th>
+              </tr>
+            </thead>
+            <tbody>
+              {enrichRuns.map((r, i) => (
+                <tr key={i} className="border-b border-border/60 last:border-0">
+                  <td className="px-2 py-1 text-accent">#{i + 1}</td>
+                  <td className="px-2 py-1 text-right text-pos">{r.processed}</td>
+                  <td className="px-2 py-1 text-right text-neg">{r.failed}</td>
+                  <td className="px-2 py-1 text-right text-zinc-300">{r.remaining}</td>
+                  <td className="px-2 py-1 text-right text-zinc-500">{r.durationMs}ms</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </Section>
+
       <Section code="Q1" title="EMBEDDING QUALITY">
         {statsError && (
           <div className="mb-2 border border-neg/60 bg-neg/10 px-2 py-1 text-2xs uppercase text-neg">
