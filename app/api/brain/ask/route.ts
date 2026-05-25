@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { retrieve } from "@/lib/brain/retrieve";
+import { retrieveHybrid, rerankChunks } from "@/lib/brain/retrieve";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -8,9 +8,15 @@ export const maxDuration = 60;
 
 const askSchema = z.object({
   query: z.string().min(2).max(2000),
+  /** Final number of citations to feed the answer LLM (default 8). */
   matchCount: z.number().int().min(1).max(20).optional(),
+  /** Pre-rerank candidate pool size (default 20). */
+  candidatePool: z.number().int().min(4).max(60).optional(),
   minSimilarity: z.number().min(0).max(1).optional(),
   filterSource: z.string().nullable().optional(),
+  filterTopic: z.string().nullable().optional(),
+  filterSentiment: z.enum(["bullish", "bearish", "neutral"]).nullable().optional(),
+  filterEntity: z.string().nullable().optional(),
 });
 
 interface Citation {
@@ -18,6 +24,8 @@ interface Citation {
   chunkId: string;
   documentId: string;
   similarity: number;
+  rerank?: number;
+  rrf?: number;
   excerpt: string;
 }
 
@@ -65,19 +73,29 @@ export async function POST(req: Request) {
   }
 
   try {
-    const chunks = await retrieve(parsed.data.query, {
-      matchCount: parsed.data.matchCount ?? 8,
-      minSimilarity: parsed.data.minSimilarity ?? 0.3,
+    const candidates = await retrieveHybrid(parsed.data.query, {
+      matchCount: parsed.data.candidatePool ?? 20,
+      minSimilarity: parsed.data.minSimilarity ?? 0,
       filterSource: parsed.data.filterSource ?? null,
+      filterTopic: parsed.data.filterTopic ?? null,
+      filterSentiment: parsed.data.filterSentiment ?? null,
+      filterEntity: parsed.data.filterEntity ?? null,
     });
+
+    const chunks = await rerankChunks(
+      parsed.data.query,
+      candidates,
+      parsed.data.matchCount ?? 8,
+    );
 
     if (chunks.length === 0) {
       return NextResponse.json({
         ok: true,
         answer:
-          "No relevant context found in the Second Brain corpus for that question. Try ingesting more sources or rephrasing.",
+          "No relevant context found in the Second Brain corpus for that question. Try removing filters, ingesting more sources, or rephrasing.",
         citations: [] as Citation[],
         chunks: [],
+        retrieval: { mode: "hybrid", candidates: candidates.length, kept: 0 },
       });
     }
 
@@ -95,10 +113,18 @@ export async function POST(req: Request) {
       chunkId: c.id,
       documentId: c.documentId,
       similarity: c.similarity,
+      rerank: c.rerank,
+      rrf: c.rrf,
       excerpt: c.content.slice(0, 220),
     }));
 
-    return NextResponse.json({ ok: true, answer, citations, chunks });
+    return NextResponse.json({
+      ok: true,
+      answer,
+      citations,
+      chunks,
+      retrieval: { mode: "hybrid+rerank", candidates: candidates.length, kept: chunks.length },
+    });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "unknown" },

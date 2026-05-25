@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { retrieve } from "@/lib/brain/retrieve";
+import { retrieveHybrid } from "@/lib/brain/retrieve";
 
 export const runtime = "nodejs";
 
@@ -12,6 +12,9 @@ const querySchema = z.object({
     .enum(["news", "rss", "pdf", "manual", "sim_output", "market_note", "transcript"])
     .nullable()
     .optional(),
+  filterTopic: z.string().nullable().optional(),
+  filterSentiment: z.enum(["bullish", "bearish", "neutral"]).nullable().optional(),
+  filterEntity: z.string().nullable().optional(),
 });
 
 export async function POST(req: Request) {
@@ -24,12 +27,15 @@ export async function POST(req: Request) {
     );
   }
   try {
-    const chunks = await retrieve(parsed.data.query, {
-      matchCount: parsed.data.matchCount,
-      minSimilarity: parsed.data.minSimilarity,
+    const chunks = await retrieveHybrid(parsed.data.query, {
+      matchCount: parsed.data.matchCount ?? 12,
+      minSimilarity: parsed.data.minSimilarity ?? 0,
       filterSource: parsed.data.filterSource,
+      filterTopic: parsed.data.filterTopic,
+      filterSentiment: parsed.data.filterSentiment,
+      filterEntity: parsed.data.filterEntity,
     });
-    return NextResponse.json({ ok: true, chunks });
+    return NextResponse.json({ ok: true, chunks, mode: "hybrid" });
   } catch (err) {
     const message = err instanceof Error ? err.message : "unknown_error";
     return NextResponse.json({ error: message }, { status: 500 });
