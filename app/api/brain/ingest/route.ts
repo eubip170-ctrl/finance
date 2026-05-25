@@ -14,6 +14,7 @@ const ingestSchema = z.object({
     "sim_output",
     "market_note",
     "transcript",
+    "brief",
   ]),
   title: z.string().min(1),
   rawText: z.string().min(1),
