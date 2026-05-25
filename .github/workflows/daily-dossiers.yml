@@ -1,0 +1,39 @@
+name: daily-brain-dossiers
+
+on:
+  schedule:
+    # 07:00 UTC — half an hour after the Daily Brief. Brief gives "what
+    # happened today", dossiers give "the 30-day picture per topic".
+    - cron: '0 7 * * *'
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Why are you forcing a dossier regen?'
+        required: false
+        default: 'manual'
+
+jobs:
+  regen:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: POST /api/cron/regenerate-dossiers
+        env:
+          URL: ${{ secrets.BRAIN_DOSSIERS_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "::error::BRAIN_DOSSIERS_URL or CRON_SECRET secret is missing"
+            exit 1
+          fi
+          echo "Regenerating dossiers via $URL"
+          HTTP_STATUS=$(curl -sS -o response.json -w "%{http_code}" \
+            -X POST "$URL" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -H "Content-Type: application/json" \
+            --max-time 300)
+          echo "HTTP $HTTP_STATUS"
+          cat response.json
+          if [ "$HTTP_STATUS" != "200" ] && [ "$HTTP_STATUS" != "207" ]; then
+            exit 1
+          fi
