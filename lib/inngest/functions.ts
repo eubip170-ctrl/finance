@@ -159,13 +159,15 @@ export const autoPipelineCronFn = inngest.createFunction(
   },
 );
 
+// rssCronFn is intentionally not registered — NewsAPI.ai replaced the RSS
+// feed loop. The function code is kept above so it can be re-enabled by
+// adding it back into this array if NewsAPI ever needs to be bypassed.
 export const functions = [
   ontologyFn,
   actorsFn,
   simulationFn,
   reportFn,
   pipelineFn,
-  rssCronFn,
   eventDetectCronFn,
   autoPipelineCronFn,
 ];

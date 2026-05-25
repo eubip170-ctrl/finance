@@ -1,7 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { chunkText, estimateTokens } from "./chunker";
 import { embed } from "./embeddings";
-import { enrichDocument } from "./enrich";
+import { enrichDocument, type EnrichmentResult } from "./enrich";
 import { contentHash } from "./hash";
 
 export type IngestInput = {
@@ -20,6 +20,12 @@ export type IngestInput = {
   author?: string;
   publishedAt?: string;
   metadata?: Record<string, unknown>;
+  /**
+   * Pre-computed Phase-1 enrichment. When provided, the LLM enrichment call
+   * is skipped and these fields are written directly. Used by NewsAPI.ai
+   * ingest where concepts / sentiment / categories arrive already extracted.
+   */
+  enrichment?: EnrichmentResult;
 };
 
 export type IngestResult = {
@@ -86,14 +92,17 @@ export async function ingestDocument(input: IngestInput): Promise<IngestResult> 
 
   // Enrichment is best-effort: if OpenAI hiccups or the doc is too weird to
   // classify, we keep the doc anyway and let the /admin/enrich backfill route
-  // pick it up later.
+  // pick it up later. When the caller supplies an `enrichment` (e.g. NewsAPI
+  // already gave us concepts/sentiment), skip the LLM call entirely.
   let enriched = false;
   try {
-    const meta = await enrichDocument({
-      title: input.title,
-      rawText: input.rawText,
-      sourceType: input.sourceType,
-    });
+    const meta =
+      input.enrichment ??
+      (await enrichDocument({
+        title: input.title,
+        rawText: input.rawText,
+        sourceType: input.sourceType,
+      }));
     const { error: updErr } = await supabase
       .from("brain_documents")
       .update({
