@@ -132,6 +132,9 @@ interface Chunk {
   documentId: string;
   content: string;
   similarity: number;
+  bm25?: number;
+  rrf?: number;
+  rerank?: number;
   metadata?: Record<string, unknown>;
 }
 interface Citation {
@@ -139,18 +142,55 @@ interface Citation {
   chunkId: string;
   documentId: string;
   similarity: number;
+  rerank?: number;
+  rrf?: number;
   excerpt: string;
+}
+interface RetrievalMeta {
+  mode: string;
+  candidates: number;
+  kept: number;
+}
+
+interface AskTrace {
+  mode: "quick" | "deep";
+  subqueries: string[];
+  iterations: number;
+  candidatePool: number;
+  rerankedKept: number;
+  confidence?: number;
+  gaps?: string[];
 }
 
 function SearchPanel({ onOpenDoc }: { onOpenDoc: (id: string) => void }) {
   const [q, setQ] = useState("");
   const [source, setSource] = useState<"" | SourceType>("");
-  const [minSim, setMinSim] = useState(0.3);
+  const [topic, setTopic] = useState("");
+  const [sentiment, setSentiment] = useState<"" | "bullish" | "bearish" | "neutral">("");
+  const [entity, setEntity] = useState("");
+  const [minSim, setMinSim] = useState(0);
+  const [askMode, setAskMode] = useState<"quick" | "deep">("quick");
   const [chunks, setChunks] = useState<Chunk[]>([]);
   const [answer, setAnswer] = useState<string>("");
   const [citations, setCitations] = useState<Citation[]>([]);
+  const [retrieval, setRetrieval] = useState<RetrievalMeta | null>(null);
+  const [trace, setTrace] = useState<AskTrace | null>(null);
   const [busy, setBusy] = useState<"" | "search" | "ask">("");
   const [error, setError] = useState<string>("");
+
+  function buildPayload(matchCount: number, mode?: "quick" | "deep") {
+    return {
+      query: q,
+      mode,
+      matchCount,
+      candidatePool: 20,
+      minSimilarity: minSim,
+      filterSource: source || null,
+      filterTopic: topic || null,
+      filterSentiment: sentiment || null,
+      filterEntity: entity.trim() || null,
+    };
+  }
 
   async function runSearch(e?: React.FormEvent) {
     e?.preventDefault();
@@ -158,20 +198,18 @@ function SearchPanel({ onOpenDoc }: { onOpenDoc: (id: string) => void }) {
     setError("");
     setAnswer("");
     setCitations([]);
+    setRetrieval(null);
+    setTrace(null);
     try {
       const res = await fetch("/api/brain/query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          query: q,
-          matchCount: 12,
-          minSimilarity: minSim,
-          filterSource: source || null,
-        }),
+        body: JSON.stringify(buildPayload(12)),
       });
       const j = await res.json();
       if (!res.ok) throw new Error(j.error || "failed");
       setChunks(j.chunks ?? []);
+      setRetrieval({ mode: j.mode ?? "hybrid", candidates: (j.chunks ?? []).length, kept: (j.chunks ?? []).length });
     } catch (err) {
       setError(err instanceof Error ? err.message : "unknown");
     } finally {
@@ -183,22 +221,21 @@ function SearchPanel({ onOpenDoc }: { onOpenDoc: (id: string) => void }) {
     if (!q.trim()) return;
     setBusy("ask");
     setError("");
+    setRetrieval(null);
+    setTrace(null);
     try {
       const res = await fetch("/api/brain/ask", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          query: q,
-          matchCount: 8,
-          minSimilarity: minSim,
-          filterSource: source || null,
-        }),
+        body: JSON.stringify(buildPayload(8, askMode)),
       });
       const j = await res.json();
       if (!res.ok) throw new Error(j.error || "failed");
       setAnswer(j.answer ?? "");
       setCitations(j.citations ?? []);
       setChunks(j.chunks ?? []);
+      setRetrieval(j.retrieval ?? null);
+      setTrace(j.trace ?? null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "unknown");
     } finally {
@@ -223,7 +260,7 @@ function SearchPanel({ onOpenDoc }: { onOpenDoc: (id: string) => void }) {
         <select
           value={source}
           onChange={(e) => setSource(e.target.value as "" | SourceType)}
-          className="input-field w-full lg:w-32"
+          className="input-field w-full lg:w-28"
         >
           <option value="">all sources</option>
           {SOURCES.map((s) => (
@@ -232,21 +269,48 @@ function SearchPanel({ onOpenDoc }: { onOpenDoc: (id: string) => void }) {
             </option>
           ))}
         </select>
-        <label className="inline-flex items-center gap-1 text-2xs uppercase tracking-widest text-zinc-500">
-          MIN SIM
-          <input
-            type="number"
-            min={0}
-            max={1}
-            step={0.05}
-            value={minSim}
-            onChange={(e) => setMinSim(Math.min(1, Math.max(0, Number(e.target.value) || 0)))}
-            className="input-field w-16"
-          />
-        </label>
+        <select
+          value={topic}
+          onChange={(e) => setTopic(e.target.value)}
+          className="input-field w-full lg:w-32"
+        >
+          <option value="">all topics</option>
+          {TOPIC_OPTIONS.map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
+        </select>
+        <select
+          value={sentiment}
+          onChange={(e) =>
+            setSentiment(e.target.value as "" | "bullish" | "bearish" | "neutral")
+          }
+          className="input-field w-full lg:w-24"
+        >
+          <option value="">any tone</option>
+          <option value="bullish">bullish</option>
+          <option value="bearish">bearish</option>
+          <option value="neutral">neutral</option>
+        </select>
+        <input
+          value={entity}
+          onChange={(e) => setEntity(e.target.value)}
+          placeholder="entity (AAPL · Powell)"
+          className="input-field w-full lg:w-40"
+        />
         <button type="submit" disabled={!q.trim() || busy !== ""} className="btn-secondary">
           <Search size={11} /> {busy === "search" ? "…" : "SEARCH"}
         </button>
+        <select
+          value={askMode}
+          onChange={(e) => setAskMode(e.target.value as "quick" | "deep")}
+          className="input-field w-20"
+          title="Quick = single-pass · Deep = decompose + self-critique"
+        >
+          <option value="quick">quick</option>
+          <option value="deep">deep</option>
+        </select>
         <button
           type="button"
           onClick={runAsk}
@@ -256,6 +320,64 @@ function SearchPanel({ onOpenDoc }: { onOpenDoc: (id: string) => void }) {
           <Sparkles size={11} /> {busy === "ask" ? "THINKING…" : "ASK AI"}
         </button>
       </form>
+
+      {retrieval && (
+        <div className="mt-1 flex flex-wrap items-center gap-2 text-2xs uppercase tracking-widest text-zinc-500">
+          <span className="rounded-sm bg-accent/10 px-1 py-0.5 text-accent">
+            {retrieval.mode}
+          </span>
+          <span>{retrieval.candidates} CANDIDATES → {retrieval.kept} KEPT</span>
+          {trace?.iterations != null && trace.iterations > 1 && (
+            <span className="text-amber-400">{trace.iterations} ITERATIONS</span>
+          )}
+          {trace?.subqueries && trace.subqueries.length > 1 && (
+            <span>· {trace.subqueries.length} SUB-QUERIES</span>
+          )}
+          {trace?.confidence != null && (
+            <span
+              className={
+                trace.confidence >= 4
+                  ? "text-pos"
+                  : trace.confidence >= 2
+                    ? "text-amber-300"
+                    : "text-neg"
+              }
+            >
+              · CONF {trace.confidence}/5
+            </span>
+          )}
+        </div>
+      )}
+
+      {trace?.subqueries && trace.subqueries.length > 1 && (
+        <div className="mt-1 flex flex-wrap items-center gap-1 text-2xs text-zinc-500">
+          <span className="uppercase tracking-widest">PLAN:</span>
+          {trace.subqueries.map((s, i) => (
+            <span
+              key={i}
+              className="rounded-sm border border-border bg-black/30 px-1 py-0.5 text-zinc-300"
+              title={s}
+            >
+              {i + 1}. {s.length > 40 ? s.slice(0, 40) + "…" : s}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {trace?.gaps && trace.gaps.length > 0 && (
+        <div className="mt-1 flex flex-wrap items-start gap-1 text-2xs text-zinc-500">
+          <span className="uppercase tracking-widest text-amber-400">GAPS:</span>
+          {trace.gaps.map((g, i) => (
+            <span
+              key={i}
+              className="rounded-sm border border-amber-400/40 bg-amber-400/5 px-1 py-0.5 text-amber-300"
+              title={g}
+            >
+              {g.length > 50 ? g.slice(0, 50) + "…" : g}
+            </span>
+          ))}
+        </div>
+      )}
 
       {error && (
         <div className="mt-2 border border-neg/60 bg-neg/10 px-2 py-1 text-2xs uppercase text-neg">
@@ -285,8 +407,11 @@ function SearchPanel({ onOpenDoc }: { onOpenDoc: (id: string) => void }) {
                   </span>
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-2xs text-zinc-300">{c.excerpt}…</div>
-                    <div className="text-2xs uppercase tracking-widest text-zinc-600">
-                      sim {c.similarity.toFixed(3)}
+                    <div className="flex gap-2 text-2xs uppercase tracking-widest text-zinc-600">
+                      <span>sim {c.similarity.toFixed(3)}</span>
+                      {typeof c.rerank === "number" && (
+                        <span className="text-accent">rr {c.rerank.toFixed(1)}/10</span>
+                      )}
                     </div>
                   </div>
                   <ExternalLink size={11} className="shrink-0 text-zinc-500" />

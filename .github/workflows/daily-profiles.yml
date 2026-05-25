@@ -1,0 +1,40 @@
+name: daily-brain-entity-profiles
+
+on:
+  schedule:
+    # 07:30 UTC — sequenced after the daily brief (06:30) and topic
+    # dossiers (07:00), so the entity profiles see the freshest enriched
+    # corpus possible.
+    - cron: '30 7 * * *'
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Why are you forcing a profile regen?'
+        required: false
+        default: 'manual'
+
+jobs:
+  regen:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: POST /api/cron/regenerate-profiles
+        env:
+          URL: ${{ secrets.BRAIN_PROFILES_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "::error::BRAIN_PROFILES_URL or CRON_SECRET secret is missing"
+            exit 1
+          fi
+          echo "Regenerating entity profiles via $URL"
+          HTTP_STATUS=$(curl -sS -o response.json -w "%{http_code}" \
+            -X POST "$URL" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -H "Content-Type: application/json" \
+            --max-time 300)
+          echo "HTTP $HTTP_STATUS"
+          cat response.json
+          if [ "$HTTP_STATUS" != "200" ] && [ "$HTTP_STATUS" != "207" ]; then
+            exit 1
+          fi

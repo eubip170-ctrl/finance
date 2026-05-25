@@ -12,7 +12,8 @@ export type IngestInput = {
     | "manual"
     | "sim_output"
     | "market_note"
-    | "transcript";
+    | "transcript"
+    | "brief";
   title: string;
   rawText: string;
   sourceUrl?: string;

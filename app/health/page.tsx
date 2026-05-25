@@ -1,44 +1,25 @@
 import Link from "next/link";
 import { MarketstackProbe } from "./marketstack-probe";
-
-async function loadHealth(): Promise<HealthReport | null> {
-  try {
-    const base =
-      process.env.NEXT_PUBLIC_BASE_URL ||
-      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
-    const res = await fetch(`${base}/api/health`, { cache: "no-store" });
-    return (await res.json()) as HealthReport;
-  } catch {
-    return null;
-  }
-}
-
-interface Check {
-  ok: boolean;
-  detail?: string;
-  ms?: number;
-}
-interface HealthReport {
-  ok: boolean;
-  env: Record<string, Check>;
-  supabase: Check;
-  marketstack: Check;
-  cache: Record<string, Check>;
-  ts: string;
-}
+import { runHealthChecks, type Check, type HealthReport } from "@/lib/health/checks";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export default async function HealthPage() {
-  const h = await loadHealth();
+  let h: HealthReport | null = null;
+  let err: string | null = null;
+  try {
+    h = await runHealthChecks();
+  } catch (e) {
+    err = e instanceof Error ? e.message : "unknown";
+  }
 
   if (!h) {
     return (
       <main className="px-3 py-3">
         <PageHeader title="SYSTEM HEALTH" />
         <div className="mt-2 border border-neg/60 bg-neg/10 px-2 py-1 text-2xs uppercase text-neg">
-          Could not reach /api/health. Visit /api/health directly to debug.
+          Health check failed: {err ?? "no report"}. Visit /api/health directly to debug.
         </div>
       </main>
     );

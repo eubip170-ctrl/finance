@@ -1,0 +1,40 @@
+name: daily-brain-brief
+
+on:
+  schedule:
+    # 06:30 UTC — after Asia close, before US open. The RSS cron has been
+    # accumulating last 24h of headlines, so the brief synthesizes them
+    # into the morning read.
+    - cron: '30 6 * * *'
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Why are you forcing a brief regen?'
+        required: false
+        default: 'manual'
+
+jobs:
+  brief:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: POST /api/cron/generate-brief
+        env:
+          BRIEF_URL: ${{ secrets.BRAIN_BRIEF_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$BRIEF_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "::error::BRAIN_BRIEF_URL or CRON_SECRET secret is missing"
+            exit 1
+          fi
+          echo "Generating brief via $BRIEF_URL"
+          HTTP_STATUS=$(curl -sS -o response.json -w "%{http_code}" \
+            -X POST "$BRIEF_URL" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -H "Content-Type: application/json" \
+            --max-time 300)
+          echo "HTTP $HTTP_STATUS"
+          cat response.json
+          if [ "$HTTP_STATUS" != "200" ]; then
+            exit 1
+          fi
