@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getLatestDossier } from "@/lib/brain/dossier";
+import { getLatestProfile } from "@/lib/brain/profile";
 import { RegenerateButton } from "./regenerate-button";
 
 export const dynamic = "force-dynamic";
@@ -11,51 +11,58 @@ const SENTIMENT_TONE = {
   neutral: "text-zinc-400",
 } as const;
 
-export default async function TopicDossierPage(props: { params: Promise<{ slug: string }> }) {
-  const { slug } = await props.params;
-  const topic = decodeURIComponent(slug);
+export default async function EntityProfilePage(props: { params: Promise<{ name: string }> }) {
+  const { name } = await props.params;
+  const decoded = decodeURIComponent(name);
 
-  let dossier: Awaited<ReturnType<typeof getLatestDossier>> = null;
+  let profile: Awaited<ReturnType<typeof getLatestProfile>> = null;
   let error: string | null = null;
   try {
-    dossier = await getLatestDossier(topic);
+    profile = await getLatestProfile(decoded);
   } catch (err) {
     error = err instanceof Error ? err.message : "unknown";
   }
 
   const total =
-    dossier?.sentiment
-      ? dossier.sentiment.bullish + dossier.sentiment.bearish + dossier.sentiment.neutral
+    profile?.sentiment
+      ? profile.sentiment.bullish + profile.sentiment.bearish + profile.sentiment.neutral
       : 0;
   const tilt: keyof typeof SENTIMENT_TONE =
-    !dossier || total === 0
+    !profile || total === 0
       ? "neutral"
-      : dossier.sentiment.bullish > dossier.sentiment.bearish && dossier.sentiment.bullish > dossier.sentiment.neutral
+      : profile.sentiment.bullish > profile.sentiment.bearish && profile.sentiment.bullish > profile.sentiment.neutral
         ? "bullish"
-        : dossier.sentiment.bearish > dossier.sentiment.bullish && dossier.sentiment.bearish > dossier.sentiment.neutral
+        : profile.sentiment.bearish > profile.sentiment.bullish && profile.sentiment.bearish > profile.sentiment.neutral
           ? "bearish"
           : "neutral";
+
+  const maxWeekly = Math.max(1, ...((profile?.weeklyMentions ?? []).map((w) => w.count)));
 
   return (
     <main className="px-3 py-3">
       <div className="flex flex-wrap items-center gap-3 border-b border-border pb-1">
         <span className="rounded-sm bg-accent/15 px-1.5 py-0.5 text-2xs font-bold uppercase tracking-widest text-accent">
-          TPC
+          ENT
         </span>
         <h1 className="text-2xs font-bold uppercase tracking-[0.3em] text-zinc-100">
-          {topic}
+          {decoded}
         </h1>
-        {dossier && (
+        {profile?.kinds && profile.kinds.length > 0 && (
           <span className="text-2xs uppercase tracking-widest text-zinc-500">
-            · {new Date(dossier.generatedAt).toUTCString().slice(5, 22)}
+            · {profile.kinds.join(" · ")}
           </span>
         )}
-        <RegenerateButton slug={slug} />
+        {profile && (
+          <span className="text-2xs uppercase tracking-widest text-zinc-500">
+            · {new Date(profile.generatedAt).toUTCString().slice(5, 22)}
+          </span>
+        )}
+        <RegenerateButton name={name} />
         <Link
-          href="/brain/topics"
+          href="/brain/entities"
           className="border border-accent/60 px-2 py-0.5 text-2xs uppercase tracking-widest text-accent hover:bg-accent/10"
         >
-          TOPICS
+          ENTITIES
         </Link>
         <Link
           href="/brain"
@@ -71,19 +78,19 @@ export default async function TopicDossierPage(props: { params: Promise<{ slug: 
         </div>
       )}
 
-      {!dossier && !error && (
+      {!profile && !error && (
         <div className="mt-6 border border-border bg-panel px-3 py-6 text-center text-2xs uppercase tracking-widest text-zinc-500">
-          No dossier yet for{" "}
-          <span className="text-accent">{topic}</span>. Click REGENERATE
-          above (needs ≥4 enriched docs on this topic in the last 30 days).
+          No profile yet for{" "}
+          <span className="text-accent">{decoded}</span>. Click REGENERATE
+          (needs ≥3 enriched docs mentioning this entity in the last 60 days).
         </div>
       )}
 
-      {dossier && (
+      {profile && (
         <>
           <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-5">
-            <Stat label="DOCS" value={dossier.docCount} />
-            <Stat label="WINDOW" value={`${dossier.windowDays}D`} />
+            <Stat label="MENTIONS" value={profile.docCount} />
+            <Stat label="WINDOW" value={`${profile.windowDays}D`} />
             <Stat
               label="SENTIMENT TILT"
               value={tilt.toUpperCase()}
@@ -91,48 +98,65 @@ export default async function TopicDossierPage(props: { params: Promise<{ slug: 
             />
             <Stat
               label="B · B · N"
-              value={`${dossier.sentiment.bullish} · ${dossier.sentiment.bearish} · ${dossier.sentiment.neutral}`}
+              value={`${profile.sentiment.bullish} · ${profile.sentiment.bearish} · ${profile.sentiment.neutral}`}
             />
-            <Stat
-              label="GENERATED"
-              value={new Date(dossier.generatedAt).toLocaleString(undefined, {
-                month: "2-digit",
-                day: "2-digit",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            />
+            <Stat label="TOPICS" value={profile.topTopics.length} />
           </div>
 
-          <Section code="01" title="CURRENT STATE">
+          {profile.weeklyMentions.length > 1 && (
+            <Section code="T1" title="MENTIONS · WEEKLY">
+              <ul className="flex items-end gap-1">
+                {profile.weeklyMentions.map((w) => {
+                  const h = Math.max(2, Math.round((w.count / maxWeekly) * 56));
+                  return (
+                    <li
+                      key={w.weekStart}
+                      className="flex w-6 flex-col items-center"
+                      title={`${w.weekStart}: ${w.count}`}
+                    >
+                      <div
+                        className="w-full bg-accent/70"
+                        style={{ height: `${h}px` }}
+                      />
+                      <span className="mt-1 text-[8px] text-zinc-600">
+                        {w.weekStart.slice(5)}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </Section>
+          )}
+
+          <Section code="01" title="IDENTITY">
             <p className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-100">
-              {dossier.sections.currentState || "—"}
+              {profile.sections.identity || "—"}
             </p>
           </Section>
 
-          {dossier.sections.keyDrivers.length > 0 && (
-            <Section code="02" title="KEY DRIVERS">
+          <Section code="02" title="LATEST ACTIVITY">
+            <p className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-100">
+              {profile.sections.latestActivity || "—"}
+            </p>
+          </Section>
+
+          {profile.sections.themes.length > 0 && (
+            <Section code="03" title="THEMES">
               <ul className="space-y-1 text-sm leading-relaxed text-zinc-100">
-                {dossier.sections.keyDrivers.map((d, i) => (
+                {profile.sections.themes.map((t, i) => (
                   <li key={i} className="flex gap-2">
                     <span className="font-mono text-2xs text-accent">→</span>
-                    <span className="flex-1">{d}</span>
+                    <span className="flex-1">{t}</span>
                   </li>
                 ))}
               </ul>
             </Section>
           )}
 
-          <Section code="03" title="SENTIMENT">
-            <p className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-100">
-              {dossier.sections.sentimentNote || "—"}
-            </p>
-          </Section>
-
-          {dossier.sections.topEntities.length > 0 && (
-            <Section code="04" title="TOP ENTITIES">
+          {profile.coOccurringEntities.length > 0 && (
+            <Section code="04" title="CONNECTIONS">
               <ul className="grid grid-cols-1 gap-1 md:grid-cols-2">
-                {dossier.sections.topEntities.map((e) => (
+                {profile.coOccurringEntities.map((e) => (
                   <li
                     key={`${e.kind}:${e.name}`}
                     className="flex items-center justify-between border border-border/60 bg-black/30 px-2 py-1"
@@ -140,7 +164,6 @@ export default async function TopicDossierPage(props: { params: Promise<{ slug: 
                     <Link
                       href={`/brain/entity/${encodeURIComponent(e.name)}`}
                       className="min-w-0 flex-1 truncate text-sm text-zinc-200 hover:text-accent"
-                      title={`${e.kind}: ${e.name}`}
                     >
                       {e.name}
                     </Link>
@@ -148,7 +171,7 @@ export default async function TopicDossierPage(props: { params: Promise<{ slug: 
                       {e.kind}
                     </span>
                     <span className="ml-2 font-mono text-2xs tabular-nums text-accent">
-                      ×{e.mentions}
+                      ×{e.count}
                     </span>
                   </li>
                 ))}
@@ -156,16 +179,34 @@ export default async function TopicDossierPage(props: { params: Promise<{ slug: 
             </Section>
           )}
 
-          <Section code="05" title="OUTLOOK">
+          {profile.topTopics.length > 0 && (
+            <Section code="05" title="APPEARS IN TOPICS">
+              <ul className="flex flex-wrap gap-1">
+                {profile.topTopics.map((t) => (
+                  <li key={t.topic}>
+                    <Link
+                      href={`/brain/topic/${encodeURIComponent(t.topic)}`}
+                      className="inline-flex items-center gap-1 rounded-sm border border-border bg-black/40 px-2 py-0.5 text-2xs uppercase tracking-widest text-zinc-300 hover:border-accent hover:text-accent"
+                    >
+                      {t.topic}
+                      <span className="font-mono text-2xs text-accent">×{t.count}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </Section>
+          )}
+
+          <Section code="06" title="WHAT TO WATCH">
             <p className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-100">
-              {dossier.sections.outlook || "—"}
+              {profile.sections.watchPoints || "—"}
             </p>
           </Section>
 
-          {dossier.sources.length > 0 && (
-            <Section code="S" title={`SOURCES · ${dossier.sources.length}`}>
+          {profile.sources.length > 0 && (
+            <Section code="S" title={`SOURCES · ${profile.sources.length}`}>
               <ul className="grid grid-cols-1 gap-1 md:grid-cols-2">
-                {dossier.sources.map((s, i) => (
+                {profile.sources.map((s, i) => (
                   <li
                     key={s.id}
                     className="flex items-start gap-2 border border-border/60 bg-black/30 px-2 py-1"
