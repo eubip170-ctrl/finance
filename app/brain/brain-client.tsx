@@ -152,6 +152,16 @@ interface RetrievalMeta {
   kept: number;
 }
 
+interface AskTrace {
+  mode: "quick" | "deep";
+  subqueries: string[];
+  iterations: number;
+  candidatePool: number;
+  rerankedKept: number;
+  confidence?: number;
+  gaps?: string[];
+}
+
 function SearchPanel({ onOpenDoc }: { onOpenDoc: (id: string) => void }) {
   const [q, setQ] = useState("");
   const [source, setSource] = useState<"" | SourceType>("");
@@ -159,16 +169,19 @@ function SearchPanel({ onOpenDoc }: { onOpenDoc: (id: string) => void }) {
   const [sentiment, setSentiment] = useState<"" | "bullish" | "bearish" | "neutral">("");
   const [entity, setEntity] = useState("");
   const [minSim, setMinSim] = useState(0);
+  const [askMode, setAskMode] = useState<"quick" | "deep">("quick");
   const [chunks, setChunks] = useState<Chunk[]>([]);
   const [answer, setAnswer] = useState<string>("");
   const [citations, setCitations] = useState<Citation[]>([]);
   const [retrieval, setRetrieval] = useState<RetrievalMeta | null>(null);
+  const [trace, setTrace] = useState<AskTrace | null>(null);
   const [busy, setBusy] = useState<"" | "search" | "ask">("");
   const [error, setError] = useState<string>("");
 
-  function buildPayload(matchCount: number) {
+  function buildPayload(matchCount: number, mode?: "quick" | "deep") {
     return {
       query: q,
+      mode,
       matchCount,
       candidatePool: 20,
       minSimilarity: minSim,
@@ -186,6 +199,7 @@ function SearchPanel({ onOpenDoc }: { onOpenDoc: (id: string) => void }) {
     setAnswer("");
     setCitations([]);
     setRetrieval(null);
+    setTrace(null);
     try {
       const res = await fetch("/api/brain/query", {
         method: "POST",
@@ -208,11 +222,12 @@ function SearchPanel({ onOpenDoc }: { onOpenDoc: (id: string) => void }) {
     setBusy("ask");
     setError("");
     setRetrieval(null);
+    setTrace(null);
     try {
       const res = await fetch("/api/brain/ask", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(buildPayload(8)),
+        body: JSON.stringify(buildPayload(8, askMode)),
       });
       const j = await res.json();
       if (!res.ok) throw new Error(j.error || "failed");
@@ -220,6 +235,7 @@ function SearchPanel({ onOpenDoc }: { onOpenDoc: (id: string) => void }) {
       setCitations(j.citations ?? []);
       setChunks(j.chunks ?? []);
       setRetrieval(j.retrieval ?? null);
+      setTrace(j.trace ?? null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "unknown");
     } finally {
@@ -286,6 +302,15 @@ function SearchPanel({ onOpenDoc }: { onOpenDoc: (id: string) => void }) {
         <button type="submit" disabled={!q.trim() || busy !== ""} className="btn-secondary">
           <Search size={11} /> {busy === "search" ? "…" : "SEARCH"}
         </button>
+        <select
+          value={askMode}
+          onChange={(e) => setAskMode(e.target.value as "quick" | "deep")}
+          className="input-field w-20"
+          title="Quick = single-pass · Deep = decompose + self-critique"
+        >
+          <option value="quick">quick</option>
+          <option value="deep">deep</option>
+        </select>
         <button
           type="button"
           onClick={runAsk}
@@ -302,6 +327,55 @@ function SearchPanel({ onOpenDoc }: { onOpenDoc: (id: string) => void }) {
             {retrieval.mode}
           </span>
           <span>{retrieval.candidates} CANDIDATES → {retrieval.kept} KEPT</span>
+          {trace?.iterations != null && trace.iterations > 1 && (
+            <span className="text-amber-400">{trace.iterations} ITERATIONS</span>
+          )}
+          {trace?.subqueries && trace.subqueries.length > 1 && (
+            <span>· {trace.subqueries.length} SUB-QUERIES</span>
+          )}
+          {trace?.confidence != null && (
+            <span
+              className={
+                trace.confidence >= 4
+                  ? "text-pos"
+                  : trace.confidence >= 2
+                    ? "text-amber-300"
+                    : "text-neg"
+              }
+            >
+              · CONF {trace.confidence}/5
+            </span>
+          )}
+        </div>
+      )}
+
+      {trace?.subqueries && trace.subqueries.length > 1 && (
+        <div className="mt-1 flex flex-wrap items-center gap-1 text-2xs text-zinc-500">
+          <span className="uppercase tracking-widest">PLAN:</span>
+          {trace.subqueries.map((s, i) => (
+            <span
+              key={i}
+              className="rounded-sm border border-border bg-black/30 px-1 py-0.5 text-zinc-300"
+              title={s}
+            >
+              {i + 1}. {s.length > 40 ? s.slice(0, 40) + "…" : s}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {trace?.gaps && trace.gaps.length > 0 && (
+        <div className="mt-1 flex flex-wrap items-start gap-1 text-2xs text-zinc-500">
+          <span className="uppercase tracking-widest text-amber-400">GAPS:</span>
+          {trace.gaps.map((g, i) => (
+            <span
+              key={i}
+              className="rounded-sm border border-amber-400/40 bg-amber-400/5 px-1 py-0.5 text-amber-300"
+              title={g}
+            >
+              {g.length > 50 ? g.slice(0, 50) + "…" : g}
+            </span>
+          ))}
         </div>
       )}
 
